@@ -1,21 +1,21 @@
 import {beforeEach, describe, expect, it} from "vitest";
-import {Client, Proxy} from "../src/iframe-sandbox";
+import {Sandbox, Proxy} from "../src/iframe-sandbox";
 
 // @vitest-environment jsdom
 describe("iframe sandbox", () => {
-    let _frame: HTMLIFrameElement
+    let _sandbox: HTMLIFrameElement
 
     beforeEach(() => {
-        _frame = window.document.createElement('iframe')
-        window.document.body.appendChild(_frame)
+        _sandbox = window.document.createElement('iframe')
+        window.document.body.appendChild(_sandbox)
     })
 
-    it("should fetch context object from client", async () => {
+    it("should fetch context object from sand box", async () => {
         type Context = {
             data: string
         }
-        let proxy = new Proxy<Context>(window, _frame.contentWindow!)
-        new Client(_frame.contentWindow!, {
+        let proxy = new Proxy<Context>(window, _sandbox.contentWindow!)
+        new Sandbox(_sandbox.contentWindow!, {
             data: "data"
         }, _ => window)
 

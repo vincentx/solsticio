@@ -18,7 +18,7 @@ export class Proxy<Context> {
     }
 }
 
-export class Client {
+export class Sandbox {
     private _window: Window;
     private readonly _context: any;
     private readonly _source: (e: MessageEvent) => Window;
