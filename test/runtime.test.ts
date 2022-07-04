@@ -45,4 +45,15 @@ describe("Solstice runtime", () => {
         }])
     })
 
+    it("should not install extension if extension points undefined", () => {
+        const runtime = new Runtime({
+            id: "@extension",
+            extensionPoints: [],
+            extensions: [{
+                name: "red-button",
+                extensionPoint: "@core/buttons"
+            }]
+        })
+        expect(runtime.extensions("@core/buttons")).toEqual([])
+    })
 })

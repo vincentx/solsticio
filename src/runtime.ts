@@ -1,7 +1,7 @@
 type Name = string
 type Identifier = string
 
-function id(plugin: Plugin, component: ExtensionPoint<Extension> | Extension) {
+function identifier(plugin: Plugin, component: ExtensionPoint<Extension> | Extension) {
     return [plugin.id, component.name].join("/")
 }
 
@@ -27,13 +27,15 @@ export default class Runtime {
 
     constructor(...plugins: Plugin[]) {
         for (let plugin of plugins) {
-            for (let extensionPoint of plugin.extensionPoints)
-                this._extensionPoints.set(id(plugin, extensionPoint), extensionPoint)
+            for (let extensionPoint of plugin.extensionPoints) {
+                let id = identifier(plugin, extensionPoint)
+                this._extensionPoints.set(id, extensionPoint)
+                this._extensions.set(id, [])
+            }
 
             for (let extension of plugin.extensions) {
-                if (!this._extensions.has(extension.extensionPoint))
-                    this._extensions.set(extension.extensionPoint, [])
-                this._extensions.get(extension.extensionPoint)!.push({...{id: id(plugin, extension)}, ...extension})
+                if (this._extensions.has(extension.extensionPoint))
+                    this._extensions.get(extension.extensionPoint)!.push({...{id: identifier(plugin, extension)}, ...extension})
             }
         }
     }
