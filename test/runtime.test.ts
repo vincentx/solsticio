@@ -56,4 +56,30 @@ describe("Solstice runtime", () => {
         })
         expect(runtime.extensions("@core/buttons")).toEqual([])
     })
+
+    it("should install all extension points before extensions", () => {
+        const runtime = new Runtime(
+            {
+                id: "@extension",
+                extensionPoints: [],
+                extensions: [{
+                    name: "red-button",
+                    extensionPoint: "@core/buttons"
+                }]
+            }, {
+                id: "@core",
+                extensionPoints: [{
+                    name: "buttons",
+                    validate: (extension: {}) => extension != null
+                }],
+                extensions: []
+            }
+        )
+
+        expect(runtime.extensions("@core/buttons")).toEqual([{
+            id: "@extension/red-button",
+            name: "red-button",
+            extensionPoint: "@core/buttons"
+        }])
+    })
 })

@@ -26,13 +26,14 @@ export default class Runtime {
     private _extensions: Map<Identifier, Extension[]> = new Map()
 
     constructor(...plugins: Plugin[]) {
-        for (let plugin of plugins) {
+        for (let plugin of plugins)
             for (let extensionPoint of plugin.extensionPoints) {
                 let id = identifier(plugin, extensionPoint)
                 this._extensionPoints.set(id, extensionPoint)
                 this._extensions.set(id, [])
             }
 
+        for (let plugin of plugins) {
             for (let extension of plugin.extensions) {
                 if (this._extensions.has(extension.extensionPoint))
                     this._extensions.get(extension.extensionPoint)!.push({...{id: identifier(plugin, extension)}, ...extension})
