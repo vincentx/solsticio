@@ -55,6 +55,10 @@ describe("Solstice runtime", () => {
             }]
         })
         expect(runtime.extensions("@core/buttons")).toEqual([])
+        expect(runtime.errors()).toEqual([{
+            id: '@extension',
+            message: 'extension point @core/buttons not found for @extension/red-button'
+        }])
     })
 
     it("should install all extension points before extensions", () => {
