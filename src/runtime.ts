@@ -45,7 +45,7 @@ export default class Runtime {
                 let id = identifier(plugin, extension)
                 if (!this._extensions.has(extension.extensionPoint))
                     this.error(plugin, "extension point", extension.extensionPoint, "not found for", id)
-                else this.registerExtension(id, extension)
+                else this.registerExtension(id, extension, plugin)
             }
         }
     }
@@ -74,8 +74,10 @@ export default class Runtime {
         this._extensions.set(id, [])
     }
 
-    private registerExtension(id: Identifier, extension: Extension) {
-        this._extensions.get(extension.extensionPoint)!.push({...{id: id}, ...extension})
+    private registerExtension(id: Identifier, extension: Extension, plugin: Plugin) {
+        let extensionPoint = this._extensionPoints.get(extension.extensionPoint)!;
+        if (!extensionPoint.validate(extension)) this.error(plugin, id, "not valid for", extension.extensionPoint)
+        else this._extensions.get(extension.extensionPoint)!.push({...{id: id}, ...extension})
     }
 }
 
