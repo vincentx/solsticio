@@ -107,8 +107,7 @@ describe("Solstice runtime", () => {
         }])
     })
 
-    it("should collect error if extension not valid")
-    {
+    it("should collect error if extension not valid", () => {
         const runtime = new Runtime(
             {
                 id: "@core",
@@ -127,5 +126,28 @@ describe("Solstice runtime", () => {
             id: '@core',
             message: '@core/red-button not valid for @core/buttons'
         }])
-    }
+    })
+
+    it("should collect error if extension point throws error", () => {
+        const runtime = new Runtime(
+            {
+                id: "@core",
+                extensionPoints: [{
+                    name: "buttons",
+                    validate: () => {
+                        throw "error"
+                    }
+                }],
+                extensions: [{
+                    name: "red-button",
+                    extensionPoint: "@core/buttons"
+                }]
+            }
+        )
+
+        expect(runtime.errors()).toEqual([{
+            id: '@core',
+            message: '@core/red-button not valid for @core/buttons : error'
+        }])
+    })
 })

@@ -65,7 +65,7 @@ export default class Runtime {
         return [...this._errors]
     }
 
-    private error(plugin: Plugin, ...message: string[]) {
+    private error(plugin: Plugin, ...message: any[]) {
         this._errors.push({id: plugin.id, message: message.join(' ')})
     }
 
@@ -76,8 +76,12 @@ export default class Runtime {
 
     private registerExtension(id: Identifier, extension: Extension, plugin: Plugin) {
         let extensionPoint = this._extensionPoints.get(extension.extensionPoint)!;
-        if (!extensionPoint.validate(extension)) this.error(plugin, id, "not valid for", extension.extensionPoint)
-        else this._extensions.get(extension.extensionPoint)!.push({...{id: id}, ...extension})
+        try {
+            if (!extensionPoint.validate(extension)) this.error(plugin, id, "not valid for", extension.extensionPoint)
+            else this._extensions.get(extension.extensionPoint)!.push({...{id: id}, ...extension})
+        } catch (e) {
+            this.error(plugin, id, "not valid for", extension.extensionPoint, ":", e)
+        }
     }
 }
 
