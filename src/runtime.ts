@@ -27,12 +27,18 @@ type PluginError = {
 }
 
 export default class Runtime {
+    private _plugins: Map<Identifier, Plugin> = new Map()
     private _extensionPoints: Map<Identifier, ExtensionPoint<any>> = new Map()
     private _extensions: Map<Identifier, Extension[]> = new Map()
     private _errors: PluginError[] = []
 
     constructor(...plugins: Plugin[]) {
         for (let plugin of plugins)
+            if (this._plugins.has(plugin.id)) this.error(plugin, plugin.id, "already installed")
+            else this._plugins.set(plugin.id, plugin)
+
+
+        for (let plugin of this._plugins.values())
             for (let extensionPoint of plugin.extensionPoints) {
                 let id = identifier(plugin, extensionPoint)
                 if (this._extensionPoints.has(id))
@@ -40,7 +46,7 @@ export default class Runtime {
                 else this.registerExtensionPoint(id, extensionPoint)
             }
 
-        for (let plugin of plugins) {
+        for (let plugin of this._plugins.values()) {
             for (let extension of plugin.extensions) {
                 let id = identifier(plugin, extension)
                 if (!this._extensions.has(extension.extensionPoint))

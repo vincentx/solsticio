@@ -150,4 +150,23 @@ describe("Solstice runtime", () => {
             message: '@core/red-button not valid for @core/buttons : error'
         }])
     })
+
+    it("should collect error if plugin with duplicate id", () => {
+        const runtime = new Runtime(
+            {
+                id: "@core",
+                extensionPoints: [],
+                extensions: []
+            },
+            {
+                id: "@core",
+                extensionPoints: [],
+                extensions: []
+            }
+        )
+        expect(runtime.errors()).toEqual([{
+            id: '@core',
+            message: '@core already installed'
+        }])
+    })
 })
