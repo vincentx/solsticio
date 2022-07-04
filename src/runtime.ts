@@ -17,8 +17,8 @@ interface Extension {
 
 type Plugin = {
     readonly id: Identifier
-    extensionPoints: ExtensionPoint<Extension>[],
-    extensions: Extension[]
+    extensionPoints?: ExtensionPoint<Extension>[]
+    extensions?: Extension[]
 }
 
 type PluginError = {
@@ -39,7 +39,7 @@ export default class Runtime {
 
 
         for (let plugin of this._plugins.values())
-            for (let extensionPoint of plugin.extensionPoints) {
+            for (let extensionPoint of plugin.extensionPoints || []) {
                 let id = identifier(plugin, extensionPoint)
                 if (this._extensionPoints.has(id))
                     this.error(plugin, "extension point", id, "already defined")
@@ -47,7 +47,7 @@ export default class Runtime {
             }
 
         for (let plugin of this._plugins.values()) {
-            for (let extension of plugin.extensions) {
+            for (let extension of plugin.extensions || []) {
                 let id = identifier(plugin, extension)
                 if (!this._extensions.has(extension.extensionPoint))
                     this.error(plugin, "extension point", extension.extensionPoint, "not found for", id)
@@ -90,5 +90,3 @@ export default class Runtime {
         }
     }
 }
-
-

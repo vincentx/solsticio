@@ -13,8 +13,7 @@ describe("Solstice runtime", () => {
             extensionPoints: [{
                 name: "buttons",
                 validate: (extension: {}) => extension != null
-            }],
-            extensions: []
+            }]
         })
 
         expect(runtime.extensionPoints()).toEqual(["@core/buttons"])
@@ -48,7 +47,6 @@ describe("Solstice runtime", () => {
     it("should not install extension if extension points undefined", () => {
         const runtime = new Runtime({
             id: "@extension",
-            extensionPoints: [],
             extensions: [{
                 name: "red-button",
                 extensionPoint: "@core/buttons"
@@ -65,7 +63,6 @@ describe("Solstice runtime", () => {
         const runtime = new Runtime(
             {
                 id: "@extension",
-                extensionPoints: [],
                 extensions: [{
                     name: "red-button",
                     extensionPoint: "@core/buttons"
@@ -75,8 +72,7 @@ describe("Solstice runtime", () => {
                 extensionPoints: [{
                     name: "buttons",
                     validate: (extension: {}) => extension != null
-                }],
-                extensions: []
+                }]
             }
         )
 
@@ -97,8 +93,7 @@ describe("Solstice runtime", () => {
                 }, {
                     name: "buttons",
                     validate: (extension: {}) => extension != null
-                }],
-                extensions: []
+                }]
             }
         )
         expect(runtime.errors()).toEqual([{
@@ -153,16 +148,7 @@ describe("Solstice runtime", () => {
 
     it("should collect error if plugin with duplicate id", () => {
         const runtime = new Runtime(
-            {
-                id: "@core",
-                extensionPoints: [],
-                extensions: []
-            },
-            {
-                id: "@core",
-                extensionPoints: [],
-                extensions: []
-            }
+            {id: "@core"}, {id: "@core"}
         )
         expect(runtime.errors()).toEqual([{
             id: '@core',
