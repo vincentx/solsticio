@@ -12,16 +12,40 @@ describe("Solstice runtime", () => {
         runtime.install({
             id: "@core",
             extensionPoints: [{
-                id: "buttons",
+                name: "buttons",
                 validate: (extension: {}) => extension != null
-            }]
+            }],
+            extensions: []
         })
 
         expect(runtime.extensionPoints()).toEqual(["@core/buttons"])
     })
 
-    it.skip("should return empty extensions for undefined extension points")
-    it.skip("should install extensions from plugin")
+    it("should return empty extensions for undefined extension points", () => {
+        const runtime = new Runtime()
+        expect(runtime.extensions("@core/undefined")).toEqual([])
+    })
+
+    it("should install extensions from plugin", () => {
+        const runtime = new Runtime()
+        runtime.install({
+            id: "@core",
+            extensionPoints: [{
+                name: "buttons",
+                validate: (extension: {}) => extension != null
+            }],
+            extensions: [{
+                name: "red-button",
+                extensionPoint: "@core/buttons"
+            }]
+        })
+
+        expect(runtime.extensions("@core/buttons")).toEqual([{
+            id: "@core/red-button",
+            name: "red-button",
+            extensionPoint: "@core/buttons"
+        }])
+    })
 
     it.skip("should install get installed extensions for extension points")
 })

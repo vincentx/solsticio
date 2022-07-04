@@ -1,29 +1,51 @@
-type ExtensionPointIdentifier = string
-type PluginIdentifier = string
+type Name = string
+type Identifier = string
 
-type ExtensionPoint<Extension> = {
-    readonly id: string
-    validate: (extension: Extension) => boolean
+function id(plugin: Plugin, component: ExtensionPoint<Extension> | Extension) {
+    return [plugin.id, component.name].join("/")
+}
+
+type ExtensionPoint<E extends Extension> = {
+    readonly name: Name
+    validate: (extension: E) => boolean
+}
+
+interface Extension {
+    readonly name: Name
+    readonly extensionPoint: Identifier
 }
 
 type Plugin = {
-    readonly id: PluginIdentifier
-    extensionPoints: ExtensionPoint<any>[]
+    readonly id: Identifier
+    extensionPoints: ExtensionPoint<Extension>[],
+    extensions: Extension[]
 }
 
 export default class Runtime {
-    private _extensionPoints: Map<ExtensionPointIdentifier, ExtensionPoint<any>> = new Map()
+    private _extensionPoints: Map<Identifier, ExtensionPoint<any>> = new Map()
+    private _extensions: Map<Identifier, Extension[]> = new Map()
 
-    extensionPoints(): ExtensionPointIdentifier[] {
+    extensionPoints(): Identifier[] {
         return [...this._extensionPoints.keys()]
     }
 
     install(plugin: Plugin) {
         for (let extensionPoint of plugin.extensionPoints)
-            this._extensionPoints.set([plugin.id, extensionPoint.id].join("/"), extensionPoint)
+            this._extensionPoints.set(id(plugin, extensionPoint), extensionPoint)
+
+        for (let extension of plugin.extensions) {
+            if (!this._extensions.has(extension.extensionPoint))
+                this._extensions.set(extension.extensionPoint, [])
+            this._extensions.get(extension.extensionPoint)!.push({...{id: id(plugin, extension)}, ...extension})
+        }
     }
 
-
+    extensions(id: Identifier): Extension[] {
+        if (!this._extensions.has(id)) return []
+        return [...this._extensions.get(id)!.map(it => {
+            return {...it}
+        })]
+    }
 }
 
 
