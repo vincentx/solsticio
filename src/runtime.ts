@@ -35,8 +35,9 @@ export default class Runtime {
         for (let plugin of plugins)
             for (let extensionPoint of plugin.extensionPoints) {
                 let id = identifier(plugin, extensionPoint)
-                this._extensionPoints.set(id, extensionPoint)
-                this._extensions.set(id, [])
+                if (this._extensionPoints.has(id))
+                    this.error(plugin, "extension point", id, "already defined")
+                else this.registerExtensionPoint(id, extensionPoint)
             }
 
         for (let plugin of plugins) {
@@ -44,7 +45,7 @@ export default class Runtime {
                 let id = identifier(plugin, extension)
                 if (!this._extensions.has(extension.extensionPoint))
                     this.error(plugin, "extension point", extension.extensionPoint, "not found for", id)
-                else this._extensions.get(extension.extensionPoint)!.push({...{id: id}, ...extension})
+                else this.registerExtension(id, extension)
             }
         }
     }
@@ -66,6 +67,15 @@ export default class Runtime {
 
     private error(plugin: Plugin, ...message: string[]) {
         this._errors.push({id: plugin.id, message: message.join(' ')})
+    }
+
+    private registerExtensionPoint(id: Identifier, extensionPoint: ExtensionPoint<Extension>) {
+        this._extensionPoints.set(id, extensionPoint)
+        this._extensions.set(id, [])
+    }
+
+    private registerExtension(id: Identifier, extension: Extension) {
+        this._extensions.get(extension.extensionPoint)!.push({...{id: id}, ...extension})
     }
 }
 

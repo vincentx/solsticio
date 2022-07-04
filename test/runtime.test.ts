@@ -86,4 +86,26 @@ describe("Solstice runtime", () => {
             extensionPoint: "@core/buttons"
         }])
     })
+
+    it("should collect error if extension point already defined", () => {
+        const runtime = new Runtime(
+            {
+                id: "@core",
+                extensionPoints: [{
+                    name: "buttons",
+                    validate: (extension: {}) => extension != null
+                }, {
+                    name: "buttons",
+                    validate: (extension: {}) => extension != null
+                }],
+                extensions: []
+            }
+        )
+        expect(runtime.errors()).toEqual([{
+            id: '@core',
+            message: 'extension point @core/buttons already defined'
+        }])
+    })
+
+    it.skip("should collect error if extension not valid")
 })
