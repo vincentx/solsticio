@@ -8,8 +8,7 @@ describe("Solstice runtime", () => {
     })
 
     it("should install extension points from plugin", () => {
-        const runtime = new Runtime()
-        runtime.install({
+        const runtime = new Runtime({
             id: "@core",
             extensionPoints: [{
                 name: "buttons",
@@ -27,8 +26,7 @@ describe("Solstice runtime", () => {
     })
 
     it("should install extensions from plugin", () => {
-        const runtime = new Runtime()
-        runtime.install({
+        const runtime = new Runtime({
             id: "@core",
             extensionPoints: [{
                 name: "buttons",
@@ -47,5 +45,4 @@ describe("Solstice runtime", () => {
         }])
     })
 
-    it.skip("should install get installed extensions for extension points")
 })
