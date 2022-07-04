@@ -1,36 +1,34 @@
+import {v4 as uuid} from "uuid";
+
 export class Proxy<Context> {
     private _receiver: Window;
     private _target: Window;
+    private readonly _queue: Map<string, (value: any) => void>
 
     constructor(receiver: Window, target: Window) {
         this._receiver = receiver;
         this._target = target;
+        this._queue = new Map()
+
+        this._receiver.addEventListener('message', (e) => {
+            let message = e.data as { id: string, response: any }
+            if (this._queue.has(message.id)) {
+                let resolve = this._queue.get(message.id)!
+                this._queue.delete(message.id)
+                resolve(message.response)
+            }
+        })
     }
 
     fetch(): Promise<Context> {
         return new Promise<Context>((resolve) => {
-            this._receiver.addEventListener('message', (e) => {
-                return resolve(e.data as Context)
-            })
+            let id = uuid()
+            this._queue.set(id, resolve)
 
-            this._target.postMessage('fetch', "*")
-        })
-    }
-}
-
-export class Sandbox {
-    private _window: Window;
-    private readonly _context: any;
-    private readonly _source: (e: MessageEvent) => Window;
-
-    constructor(window: Window, context: any, source: (e: MessageEvent) => Window = e => e.source as Window) {
-        this._window = window;
-        this._context = context;
-        this._source = source;
-
-        this._window.addEventListener('message', (e) => {
-            let from = this._source(e);
-            from.postMessage(this._context, "*")
+            this._target.postMessage({
+                id: id,
+                request: 'context'
+            }, "*")
         })
     }
 }
