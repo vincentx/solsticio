@@ -11,8 +11,8 @@ describe("iframe sandbox", () => {
     })
 
     describe("proxy", () => {
-        it("should return context object with corresponding response", async () => {
-            let proxy = new Proxy<Context>(window, _sandbox.contentWindow!)
+        it("should return context object with matched response", async () => {
+            let proxy = new Proxy<Context>(window, _sandbox.contentWindow!, {data: "default"})
 
             _sandbox.contentWindow!.addEventListener("message", (e) => {
                 let message = e.data as { id: string, request: string }
@@ -26,11 +26,11 @@ describe("iframe sandbox", () => {
                 }, "*")
             })
 
-            await expect(timeout(proxy.fetch(), 1000)).resolves.toEqual({data: "data"})
+            await expect(proxy.fetch(500)).resolves.toEqual({data: "data"})
         })
 
         it("should not use object with mismatched message id", async () => {
-            let proxy = new Proxy<Context>(window, _sandbox.contentWindow!)
+            let proxy = new Proxy<Context>(window, _sandbox.contentWindow!, {data: "default"})
 
             _sandbox.contentWindow!.addEventListener("message", (e) => {
                 let message = e.data as { id: string, request: string }
@@ -51,15 +51,16 @@ describe("iframe sandbox", () => {
                 }, "*")
             })
 
-            await expect(timeout(proxy.fetch(), 1000)).resolves.toEqual({data: "data"})
+            await expect(proxy.fetch(500)).resolves.toEqual({data: "data"})
+        })
+
+        it("should return default context if no response from sandbox", async () => {
+            let proxy = new Proxy<Context>(window, _sandbox.contentWindow!, {data: "default"})
+
+            await expect(proxy.fetch(100)).resolves.toEqual({data: "default"})
         })
     })
-
-
-    function timeout<R>(promise: Promise<R>, time: number) {
-        return Promise.race([promise, new Promise<R>((_, reject) => setTimeout(reject, time))])
-    }
-
+    
     type Context = {
         data: string
     }
