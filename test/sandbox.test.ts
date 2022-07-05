@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
-import {Sandbox} from '../src/iframe-sandbox'
+import {Sandbox} from '../src/sandbox'
 import {v4} from 'uuid'
 
 // @vitest-environment jsdom

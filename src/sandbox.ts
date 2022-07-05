@@ -45,6 +45,7 @@ export class Host {
         let result: any = {}
         for (let key of Object.keys(context)) {
             if (context[key]._solstice_callback_id) result[key] = this.unmarshalCallback(context[key]._solstice_callback_id, sandbox)
+            else if (typeof context[key] === 'object') result[key] = this.unmarshal(context[key], sandbox)
             else result[key] = context[key]
         }
         return result

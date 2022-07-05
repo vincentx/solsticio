@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it} from 'vitest'
-import {Host, Sandbox} from '../src/iframe-sandbox'
+import {Host, Sandbox} from '../src/sandbox'
 
 // @vitest-environment jsdom
 describe('Host', () => {
@@ -32,7 +32,7 @@ describe('Host', () => {
     it('should call callback from sandbox context', async () => {
         let callback = new Promise<any>((resolve) => {
             sandbox({
-                func: () => resolve('func called'),
+                func: () => resolve('func called')
             })
         })
 
@@ -44,6 +44,22 @@ describe('Host', () => {
         await expect(callback).resolves.toEqual('func called')
     })
 
+    it('should call callback from nested object in context', async () => {
+        let callback = new Promise<any>((resolve) => {
+            sandbox({
+                data: {
+                    func: () => resolve('func called')
+                }
+            })
+        })
+
+        let host = new Host(_host.contentWindow!)
+        await host.connect('@sandbox', _sandbox.contentWindow!)
+
+        host.sandbox('@sandbox').data.func()
+
+        await expect(callback).resolves.toEqual('func called')
+    })
 
     function sandbox(context: any, source: (e: MessageEvent) => Window = _ => _host.contentWindow!) {
         new Sandbox({
