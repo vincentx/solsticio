@@ -48,7 +48,7 @@ describe("Sandbox", () => {
 
     describe("call callback function in sandbox context", () => {
         beforeEach(() => {
-            vi.mocked(v4).mockReturnValue("callback-id")
+            vi.mocked(v4).mockReturnValueOnce("callback-id")
         })
 
         it("should return callback reference in context", async () => {
@@ -102,13 +102,35 @@ describe("Sandbox", () => {
 
             await expect(response).resolves.toEqual({id: 'call', error: {message: 'not connected'}})
         })
+
+        it("should not call callback if request not from connected target", async () => {
+            let source = vi.fn()
+
+            let _unknown = window.document.createElement('iframe')
+            window.document.body.appendChild(_unknown)
+
+            sandbox({
+                func: () => {
+                }
+            }, source)
+
+            source.mockReturnValueOnce(window)
+            source.mockReturnValueOnce(_unknown.contentWindow!)
+
+            let response = waitForSandboxConnection().then(_ => call('call', 'callback-id'))
+                .then(_ => waitForSandboxResponse(_unknown.contentWindow!))
+
+            connectSandbox('connect')
+
+            await expect(response).resolves.toEqual({id: 'call', error: {message: 'not allowed'}})
+        })
     })
 
-    function sandbox(context: any) {
+    function sandbox(context: any, source: (e: MessageEvent) => Window = _ => window) {
         new Sandbox({
             sandbox: _sandbox.contentWindow!,
             context: context,
-            source: _ => window
+            source: source
         })
     }
 
@@ -120,9 +142,9 @@ describe("Sandbox", () => {
         _sandbox.contentWindow!.postMessage({id: id, type: 'call', callback: callback}, '*')
     }
 
-    function waitForSandboxResponse() {
+    function waitForSandboxResponse(target: Window = window) {
         return new Promise<any>((resolve) => {
-            window.addEventListener('message', (e) => resolve(e.data), {once: true})
+            target.addEventListener('message', (e) => resolve(e.data), {once: true})
         })
     }
 

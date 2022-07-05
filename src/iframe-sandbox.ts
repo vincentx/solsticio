@@ -78,7 +78,8 @@ export class Sandbox {
 
     private handleCall(request: SandboxCallRequest, target: Window) {
         if (!this._connected) this.send(errorNotConnected(request), target)
-        if (!this._callbacks.has(request.callback)) this.send(errorCallbackNotFound(request))
+        else if (this._connected != target) this.send(errorNotAllowed(request), target)
+        else if (!this._callbacks.has(request.callback)) this.send(errorCallbackNotFound(request))
         else this._callbacks.get(request.callback)!.apply(this._context)
     }
 
@@ -110,27 +111,21 @@ export class Sandbox {
 }
 
 function errorAlreadyConnected(request: SandboxRequest) {
-    return {
-        id: request.id,
-        error: {
-            message: 'already connected'
-        }
-    }
+    return error(request, 'already connected')
 }
 
 function errorCallbackNotFound(request: SandboxRequest) {
-    return {
-        id: request.id,
-        error: {
-            message: 'callback not found'
-        }
-    }
+    return error(request, 'callback not found')
 }
+
 function errorNotConnected(request: SandboxRequest) {
-    return {
-        id: request.id,
-        error: {
-            message: 'not connected'
-        }
-    }
+    return error(request, 'not connected')
+}
+
+function errorNotAllowed(request: SandboxRequest) {
+    return error(request, 'not allowed')
+}
+
+function error(request: SandboxRequest, message: string) {
+    return {id: request.id, error: {message: message}}
 }
