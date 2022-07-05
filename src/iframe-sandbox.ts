@@ -1,6 +1,9 @@
 import {v4 as uuid} from "uuid";
 
-type SandboxRequest = { id: string, type: "context" }
+type SandboxConnectRequest = { id: string, type: "context" }
+type SandboxCallRequest = { id: string, type: 'call', callback: string }
+
+type SandboxRequest = SandboxConnectRequest | SandboxCallRequest
 
 type SandboxConfiguration = {
     sandbox: Window
@@ -53,13 +56,28 @@ export class Sandbox {
 
         this._self.addEventListener('message', (e) => {
             let request = e.data as SandboxRequest
-            if (this._connected != null)
-                this.send(errorAlreadyConnected(request), config.source(e))
-            else {
-                this._connected = config.source(e)
-                this.send(this.context(request))
+            switch (request.type) {
+                case "context":
+                    this.handleContext(request, config.source(e))
+                    break
+                case "call":
+                    this.handleCall(request)
+                    break
             }
         })
+    }
+
+    private handleContext(request: SandboxConnectRequest, target: Window) {
+        if (this._connected != null)
+            this.send(errorAlreadyConnected(request), target)
+        else {
+            this._connected = target
+            this.send(this.context(request))
+        }
+    }
+
+    private handleCall(request: SandboxCallRequest) {
+        this._callbacks.get(request.callback)!.apply(this._context)
     }
 
     private context(request: SandboxRequest) {
