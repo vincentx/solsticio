@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it} from "vitest";
-import {Proxy} from "../src/iframe-sandbox";
+import {Proxy, Sandbox} from "../src/iframe-sandbox";
 
 // @vitest-environment jsdom
 describe("iframe sandbox", () => {
@@ -24,7 +24,7 @@ describe("iframe sandbox", () => {
                         data: "data"
                     }
                 }, "*")
-            })
+            }, {once: true})
 
             await expect(proxy.fetch(500, {data: "default"})).resolves.toEqual({data: "data"})
         })
@@ -49,7 +49,7 @@ describe("iframe sandbox", () => {
                         data: "data"
                     }
                 }, "*")
-            })
+            }, {once: true})
 
             await expect(proxy.fetch(500, {data: "default"})).resolves.toEqual({data: "data"})
         })
@@ -61,8 +61,67 @@ describe("iframe sandbox", () => {
         })
     })
 
+    describe("sandbox", () => {
+        beforeEach(() => {
+            new Sandbox({
+                sandbox: _sandbox.contentWindow!,
+                context: {
+                    data: "context"
+                },
+                source: _ => window
+            })
+        })
+
+        it("should response to connect request", async () => {
+            let promise = new Promise<Context>((resolve) => {
+
+                window.addEventListener('message', (e) => {
+                    let response = e.data as { id: string, response: Context }
+                    expect(response.id).toEqual('message id')
+                    resolve(response.response)
+                }, {once: true})
+            })
+
+            _sandbox.contentWindow!.postMessage({
+                id: 'message id',
+                request: 'context'
+            }, '*')
+
+            await expect(promise).resolves.toEqual({data: 'context'})
+        })
+
+        it("should not response to connect if already connected", async () => {
+            let promise = new Promise<Error>((resolve) => {
+                window.addEventListener('message', (_) => {
+                    window.addEventListener('message', (e) => {
+                        let response = e.data as { id: string, error: Error }
+                        expect(response.id).toEqual('second-connect')
+                        resolve(response.error)
+                    }, {once: true})
+                }, {once: true})
+            })
+
+            _sandbox.contentWindow!.postMessage({
+                id: 'first-connect',
+                request: 'context'
+            }, '*')
+
+
+            _sandbox.contentWindow!.postMessage({
+                id: 'second-connect',
+                request: 'context'
+            }, '*')
+
+            await expect(promise).resolves.toEqual({message: 'already connected'})
+        })
+    })
+
     type Context = {
         data: string
+    }
+
+    type Error = {
+        message: string
     }
 })
 
