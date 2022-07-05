@@ -1,13 +1,16 @@
 import {v4 as uuid} from 'uuid'
 
+type Context = any
 type SandboxConnectRequest = { id: string, type: 'context' }
 type SandboxCallRequest = { id: string, type: 'call', callback: string }
 
 type SandboxRequest = SandboxConnectRequest | SandboxCallRequest
 
+type SandboxResponse = { id: string, response: any }
+
 type SandboxConfiguration = {
     sandbox: Window
-    context: any
+    context: Context
     source: (e: MessageEvent) => Window
 }
 
@@ -19,7 +22,7 @@ export class Proxy<Context> {
         this._target = target
 
         receiver.addEventListener('message', (e) => {
-            let message = e.data as { id: string, response: any }
+            let message = e.data as SandboxResponse
             if (this._queue.has(message.id)) {
                 let resolve = this._queue.get(message.id)!
                 this._queue.delete(message.id)
@@ -44,9 +47,36 @@ export class Proxy<Context> {
     }
 }
 
+export class Host {
+    private _resolvers: Map<string, (value: any) => void> = new Map()
+    private _sandboxes: Map<string, any> = new Map()
+
+    constructor(host: Window) {
+        host.addEventListener('message', (e) => {
+            let response = e.data as SandboxResponse
+            this._resolvers.get(response.id)!(response.response)
+        })
+    }
+
+    connect(id: string, sandbox: Window) {
+        return new Promise<Context>((resolve) => {
+            let id = uuid()
+            this._resolvers.set(id, resolve)
+            sandbox.postMessage({
+                id: id,
+                type: 'context'
+            }, '*')
+        }).then(context => this._sandboxes.set(id, context))
+    }
+
+    sandbox(id: string): any {
+        return this._sandboxes.get(id)! || {}
+    }
+}
+
 export class Sandbox {
     private readonly _self: Window
-    private readonly _context: any
+    private readonly _context: Context
     private _connected: Window | null = null
     private _callbacks: Map<string, Function> = new Map()
 
@@ -90,8 +120,8 @@ export class Sandbox {
         }
     }
 
-    private marshal(context: any) {
-        let result: any = {}
+    private marshal(context: Context) {
+        let result: Context = {}
         for (let key of Object.keys(context)) {
             if (typeof context[key] === 'object') result[key] = this.marshal(context[key])
             else if (context[key] instanceof Function) result[key] = this.marshalFunction(context[key])
