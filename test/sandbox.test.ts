@@ -90,6 +90,18 @@ describe("Sandbox", () => {
 
             await expect(response).resolves.toEqual({id: 'call', error: {message: 'callback not found'}})
         })
+
+        it("should not call callback if sandbox not connected", async () => {
+            sandbox({
+                func: () => {
+                }
+            })
+
+            let response = waitForSandboxResponse();
+            call('call', 'callback-id')
+
+            await expect(response).resolves.toEqual({id: 'call', error: {message: 'not connected'}})
+        })
     })
 
     function sandbox(context: any) {

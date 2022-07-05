@@ -61,7 +61,7 @@ export class Sandbox {
                     this.handleContext(request, config.source(e))
                     break
                 case "call":
-                    this.handleCall(request)
+                    this.handleCall(request, config.source(e))
                     break
             }
         })
@@ -76,7 +76,8 @@ export class Sandbox {
         }
     }
 
-    private handleCall(request: SandboxCallRequest) {
+    private handleCall(request: SandboxCallRequest, target: Window) {
+        if (!this._connected) this.send(errorNotConnected(request), target)
         if (!this._callbacks.has(request.callback)) this.send(errorCallbackNotFound(request))
         else this._callbacks.get(request.callback)!.apply(this._context)
     }
@@ -122,6 +123,14 @@ function errorCallbackNotFound(request: SandboxRequest) {
         id: request.id,
         error: {
             message: 'callback not found'
+        }
+    }
+}
+function errorNotConnected(request: SandboxRequest) {
+    return {
+        id: request.id,
+        error: {
+            message: 'not connected'
         }
     }
 }
