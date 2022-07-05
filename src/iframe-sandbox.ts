@@ -2,12 +2,10 @@ import {v4 as uuid} from "uuid";
 
 export class Proxy<Context> {
     private _target: Window;
-    private readonly _context: Context;
     private readonly _queue: Map<string, (value: any) => void> = new Map()
 
-    constructor(receiver: Window, target: Window, context: Context) {
+    constructor(receiver: Window, target: Window) {
         this._target = target;
-        this._context = context;
 
         receiver.addEventListener('message', (e) => {
             let message = e.data as { id: string, response: any }
@@ -19,7 +17,7 @@ export class Proxy<Context> {
         })
     }
 
-    fetch(time: number): Promise<Context> {
+    fetch(time: number, fallback: Context): Promise<Context> {
         return this.timeout(new Promise<Context>((resolve) => {
             let id = uuid()
             this._queue.set(id, resolve)
@@ -27,11 +25,10 @@ export class Proxy<Context> {
                 id: id,
                 request: 'context'
             }, "*")
-        }), time)
+        }), time, fallback)
     }
 
-    private timeout<Context>(promise: Promise<Context>, time: number) {
-        return Promise.race([promise, new Promise<Context>((resolve) => setTimeout(resolve, time, this._context))])
+    private timeout<Context>(promise: Promise<Context>, time: number, fallback: Context) {
+        return Promise.race([promise, new Promise<Context>((resolve) => setTimeout(resolve, time, fallback))])
     }
-
 }

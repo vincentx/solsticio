@@ -12,7 +12,7 @@ describe("iframe sandbox", () => {
 
     describe("proxy", () => {
         it("should return context object with matched response", async () => {
-            let proxy = new Proxy<Context>(window, _sandbox.contentWindow!, {data: "default"})
+            let proxy = new Proxy<Context>(window, _sandbox.contentWindow!)
 
             _sandbox.contentWindow!.addEventListener("message", (e) => {
                 let message = e.data as { id: string, request: string }
@@ -26,11 +26,11 @@ describe("iframe sandbox", () => {
                 }, "*")
             })
 
-            await expect(proxy.fetch(500)).resolves.toEqual({data: "data"})
+            await expect(proxy.fetch(500, {data: "default"})).resolves.toEqual({data: "data"})
         })
 
         it("should not use object with mismatched message id", async () => {
-            let proxy = new Proxy<Context>(window, _sandbox.contentWindow!, {data: "default"})
+            let proxy = new Proxy<Context>(window, _sandbox.contentWindow!)
 
             _sandbox.contentWindow!.addEventListener("message", (e) => {
                 let message = e.data as { id: string, request: string }
@@ -51,16 +51,16 @@ describe("iframe sandbox", () => {
                 }, "*")
             })
 
-            await expect(proxy.fetch(500)).resolves.toEqual({data: "data"})
+            await expect(proxy.fetch(500, {data: "default"})).resolves.toEqual({data: "data"})
         })
 
         it("should return default context if no response from sandbox", async () => {
-            let proxy = new Proxy<Context>(window, _sandbox.contentWindow!, {data: "default"})
+            let proxy = new Proxy<Context>(window, _sandbox.contentWindow!)
 
-            await expect(proxy.fetch(100)).resolves.toEqual({data: "default"})
+            await expect(proxy.fetch(100, {data: "default"})).resolves.toEqual({data: "default"})
         })
     })
-    
+
     type Context = {
         data: string
     }
