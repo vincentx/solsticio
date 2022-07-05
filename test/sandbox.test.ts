@@ -18,13 +18,7 @@ describe("Sandbox", () => {
 
     describe("connection", () => {
         beforeEach(() => {
-            new Sandbox({
-                sandbox: _sandbox.contentWindow!,
-                context: {
-                    data: "context"
-                },
-                source: _ => window
-            })
+            sandbox({data: "context"})
         })
 
         it("should response to connect request", async () => {
@@ -56,13 +50,9 @@ describe("Sandbox", () => {
         it("should return callback reference in context", async () => {
             vi.mocked(v4).mockReturnValue("callback-id")
 
-            new Sandbox({
-                sandbox: _sandbox.contentWindow!,
-                context: {
-                    func: () => {
-                    }
-                },
-                source: _ => window
+            sandbox({
+                func: () => {
+                }
             })
 
             let response = waitForSandboxConnection()
@@ -75,15 +65,9 @@ describe("Sandbox", () => {
         it("should be able to call by callback reference", async () => {
             vi.mocked(v4).mockReturnValue("callback-id")
 
-            let promise = new Promise<any>((resolve) => {
-                new Sandbox({
-                    sandbox: _sandbox.contentWindow!,
-                    context: {
-                        func: () => {
-                            resolve('called')
-                        }
-                    },
-                    source: _ => window
+            let callback = new Promise<any>((resolve) => {
+                sandbox({
+                    func: () => resolve('called')
                 })
             })
 
@@ -94,9 +78,17 @@ describe("Sandbox", () => {
 
             call('call', 'callback-id')
 
-            await expect(promise).resolves.toEqual('called')
+            await expect(callback).resolves.toEqual('called')
         })
     })
+
+    function sandbox(context: any) {
+        new Sandbox({
+            sandbox: _sandbox.contentWindow!,
+            context: context,
+            source: _ => window
+        })
+    }
 
     function connectSandbox(id: string) {
         _sandbox.contentWindow!.postMessage({id: id, type: 'context'}, '*')
