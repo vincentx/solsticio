@@ -93,7 +93,8 @@ export class Sandbox {
     private marshal(context: any) {
         let result: any = {}
         for (let key of Object.keys(context)) {
-            if (context[key] instanceof Function) result[key] = this.marshalFunction(context[key])
+            if (typeof context[key] === 'object') result[key] = this.marshal(context[key])
+            else if (context[key] instanceof Function) result[key] = this.marshalFunction(context[key])
             else result[key] = context[key]
         }
         return result

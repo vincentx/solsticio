@@ -52,10 +52,7 @@ describe("Sandbox", () => {
         })
 
         it("should return callback reference in context", async () => {
-            sandbox({
-                func: () => {
-                }
-            })
+            sandbox(anyFunction)
 
             let response = waitForSandboxConnection()
 
@@ -65,23 +62,38 @@ describe("Sandbox", () => {
         })
 
         it("should be able to call by callback reference", async () => {
+            vi.mocked(v4).mockReturnValueOnce("another")
+
             let callback = new Promise<any>((resolve) => {
                 sandbox({
-                    func: () => resolve('called')
+                    func: () => resolve('func called'),
+                    another: () => resolve('another called')
                 })
             })
 
-            waitForSandboxConnection().then(_ => call('call', 'callback-id'))
+            waitForSandboxConnection().then(e => call('call', e.response.func.id))
             connectSandbox('connect')
 
-            await expect(callback).resolves.toEqual('called')
+            await expect(callback).resolves.toEqual('func called')
+        })
+
+        it("should be able to call callback within other object", async () => {
+            let callback = new Promise<any>((resolve) => {
+                sandbox({
+                    data: {
+                        func: () => resolve('func called'),
+                    }
+                })
+            })
+
+            waitForSandboxConnection().then(e => call('call', e.response.data.func.id))
+            connectSandbox('connect')
+
+            await expect(callback).resolves.toEqual('func called')
         })
 
         it("should not call callback if callback id inexist", async () => {
-            sandbox({
-                func: () => {
-                }
-            })
+            sandbox(anyFunction)
 
             let response = waitForSandboxConnection().then(_ => call('call', 'inexist-callback-id'))
                 .then(_ => waitForSandboxResponse())
@@ -92,10 +104,7 @@ describe("Sandbox", () => {
         })
 
         it("should not call callback if sandbox not connected", async () => {
-            sandbox({
-                func: () => {
-                }
-            })
+            sandbox(anyFunction)
 
             let response = waitForSandboxResponse();
             call('call', 'callback-id')
@@ -109,10 +118,7 @@ describe("Sandbox", () => {
             let _unknown = window.document.createElement('iframe')
             window.document.body.appendChild(_unknown)
 
-            sandbox({
-                func: () => {
-                }
-            }, source)
+            sandbox(anyFunction, source)
 
             source.mockReturnValueOnce(window)
             source.mockReturnValueOnce(_unknown.contentWindow!)
@@ -149,6 +155,11 @@ describe("Sandbox", () => {
     }
 
     const waitForSandboxConnection = waitForSandboxResponse
+
+    const anyFunction = {
+        func: () => {
+        }
+    }
 
     type Error = {
         message: string
