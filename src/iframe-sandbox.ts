@@ -1,12 +1,13 @@
 import {v4 as uuid} from 'uuid'
 
 type Context = any
+
+type SandboxRequest = SandboxConnectRequest | SandboxCallRequest
 type SandboxConnectRequest = { id: string, type: 'context' }
 type SandboxCallRequest = { id: string, type: 'call', callback: string }
 
-type SandboxRequest = SandboxConnectRequest | SandboxCallRequest
-
 type SandboxResponse = { id: string, response: any }
+type SandboxCallback = { _solstice_callback_id: string }
 
 type SandboxConfiguration = {
     sandbox: Window
@@ -66,11 +67,30 @@ export class Host {
                 id: id,
                 type: 'context'
             }, '*')
-        }).then(context => this._sandboxes.set(id, context))
+        }).then(context => this._sandboxes.set(id, this.unmarshal(context, sandbox)))
     }
 
     sandbox(id: string): any {
         return this._sandboxes.get(id)! || {}
+    }
+
+    private unmarshal(context: any, sandbox: Window) {
+        let result: any = {}
+        for (let key of Object.keys(context)) {
+            if (context[key]._solstice_callback_id) result[key] = this.unmarshalCallback(context[key]._solstice_callback_id, sandbox)
+            else result[key] = context[key]
+        }
+        return result
+    }
+
+    private unmarshalCallback(id: string, sandbox: Window) {
+        return function () {
+            sandbox.postMessage({
+                id: uuid(),
+                type: 'call',
+                callback: id
+            }, '*')
+        }
     }
 }
 
@@ -124,16 +144,16 @@ export class Sandbox {
         let result: Context = {}
         for (let key of Object.keys(context)) {
             if (typeof context[key] === 'object') result[key] = this.marshal(context[key])
-            else if (context[key] instanceof Function) result[key] = this.marshalFunction(context[key])
+            else if (context[key] instanceof Function) result[key] = this.marshalCallback(context[key])
             else result[key] = context[key]
         }
         return result
     }
 
-    private marshalFunction(func: Function) {
+    private marshalCallback(func: Function): SandboxCallback {
         let id = uuid()
         this._callbacks.set(id, func)
-        return {id: id}
+        return {_solstice_callback_id: id}
     }
 
     private send(message: any, target: Window | null = null) {

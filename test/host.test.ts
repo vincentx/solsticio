@@ -28,7 +28,22 @@ describe('Host', () => {
 
         expect(host.sandbox('@sandbox')).toEqual({data: 'data'})
     })
-    
+
+    it('should call callback from sandbox context', async () => {
+        let callback = new Promise<any>((resolve) => {
+            sandbox({
+                func: () => resolve('func called'),
+            })
+        })
+
+        let host = new Host(_host.contentWindow!)
+        await host.connect('@sandbox', _sandbox.contentWindow!)
+
+        host.sandbox('@sandbox').func()
+
+        await expect(callback).resolves.toEqual('func called')
+    })
+
 
     function sandbox(context: any, source: (e: MessageEvent) => Window = _ => _host.contentWindow!) {
         new Sandbox({

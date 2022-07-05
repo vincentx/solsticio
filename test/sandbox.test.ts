@@ -58,7 +58,7 @@ describe('Sandbox', () => {
 
             connectSandbox('connect')
 
-            await expect(response).resolves.toEqual({id: 'connect', response: {func: {id: 'callback-id'}}})
+            await expect(response).resolves.toEqual({id: 'connect', response: {func: {_solstice_callback_id: 'callback-id'}}})
         })
 
         it('should be able to call by callback reference', async () => {
@@ -71,7 +71,7 @@ describe('Sandbox', () => {
                 })
             })
 
-            waitForSandboxConnection().then(e => call('call', e.response.func.id))
+            waitForSandboxConnection().then(e => call('call', e.response.func._solstice_callback_id))
             connectSandbox('connect')
 
             await expect(callback).resolves.toEqual('func called')
@@ -86,7 +86,7 @@ describe('Sandbox', () => {
                 })
             })
 
-            waitForSandboxConnection().then(e => call('call', e.response.data.func.id))
+            waitForSandboxConnection().then(e => call('call', e.response.data.func._solstice_callback_id))
             connectSandbox('connect')
 
             await expect(callback).resolves.toEqual('func called')
