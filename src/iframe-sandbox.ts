@@ -2,6 +2,12 @@ import {v4 as uuid} from "uuid";
 
 type SandboxRequest = { id: string, type: "context" }
 
+type SandboxConfiguration = {
+    sandbox: Window
+    context: any
+    source: (e: MessageEvent) => Window
+}
+
 export class Proxy<Context> {
     private _target: Window;
     private readonly _queue: Map<string, (value: any) => void> = new Map()
@@ -35,12 +41,6 @@ export class Proxy<Context> {
     }
 }
 
-type SandboxConfiguration = {
-    sandbox: Window
-    context: any
-    source: (e: MessageEvent) => Window
-}
-
 export class Sandbox {
     private readonly _self: Window;
     private readonly _context: any;
@@ -52,21 +52,33 @@ export class Sandbox {
 
         this._self.addEventListener('message', (e) => {
             let request = e.data as SandboxRequest
-            if (this._connected != null) {
-                config.source(e).postMessage({
-                    id: request.id,
-                    error: {
-                        message: 'already connected'
-                    }
-                }, '*')
-            } else {
+            if (this._connected != null)
+                this.send(errorAlreadyConnected(request), config.source(e))
+            else {
                 this._connected = config.source(e)
-                this._connected.postMessage({
-                    id: request.id,
-                    response: this._context
-                }, '*')
+                this.send(this.context(request))
             }
         })
+    }
 
+    private context(request: SandboxRequest) {
+        return {
+            id: request.id,
+            response: this._context
+        }
+    }
+
+    private send(message: any, target: Window | null = null) {
+        (target! || this._connected).postMessage(message, '*')
     }
 }
+
+function errorAlreadyConnected(request: SandboxRequest) {
+    return {
+        id: request.id,
+        error: {
+            message: 'already connected'
+        }
+    }
+}
+
