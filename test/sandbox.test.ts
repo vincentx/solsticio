@@ -47,9 +47,11 @@ describe("Sandbox", () => {
     })
 
     describe("call callback function in sandbox context", () => {
-        it("should return callback reference in context", async () => {
+        beforeEach(() => {
             vi.mocked(v4).mockReturnValue("callback-id")
+        })
 
+        it("should return callback reference in context", async () => {
             sandbox({
                 func: () => {
                 }
@@ -63,22 +65,30 @@ describe("Sandbox", () => {
         })
 
         it("should be able to call by callback reference", async () => {
-            vi.mocked(v4).mockReturnValue("callback-id")
-
             let callback = new Promise<any>((resolve) => {
                 sandbox({
                     func: () => resolve('called')
                 })
             })
 
-            let response = waitForSandboxConnection()
+            waitForSandboxConnection().then(_ => call('call', 'callback-id'))
             connectSandbox('connect')
 
-            await expect(response).resolves.toEqual({id: 'connect', response: {func: {id: 'callback-id'}}})
-
-            call('call', 'callback-id')
-
             await expect(callback).resolves.toEqual('called')
+        })
+
+        it("should not call callback if callback id inexist", async () => {
+            sandbox({
+                func: () => {
+                }
+            })
+
+            let response = waitForSandboxConnection().then(_ => call('call', 'inexist-callback-id'))
+                .then(_ => waitForSandboxResponse())
+
+            connectSandbox('connect')
+
+            await expect(response).resolves.toEqual({id: 'call', error: {message: 'callback not found'}})
         })
     })
 
@@ -98,11 +108,13 @@ describe("Sandbox", () => {
         _sandbox.contentWindow!.postMessage({id: id, type: 'call', callback: callback}, '*')
     }
 
-    function waitForSandboxConnection() {
+    function waitForSandboxResponse() {
         return new Promise<any>((resolve) => {
             window.addEventListener('message', (e) => resolve(e.data), {once: true})
         })
     }
+
+    const waitForSandboxConnection = waitForSandboxResponse
 
     type Error = {
         message: string

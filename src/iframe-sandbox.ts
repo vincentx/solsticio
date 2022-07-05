@@ -77,7 +77,8 @@ export class Sandbox {
     }
 
     private handleCall(request: SandboxCallRequest) {
-        this._callbacks.get(request.callback)!.apply(this._context)
+        if (!this._callbacks.has(request.callback)) this.send(errorCallbackNotFound(request))
+        else this._callbacks.get(request.callback)!.apply(this._context)
     }
 
     private context(request: SandboxRequest) {
@@ -116,3 +117,11 @@ function errorAlreadyConnected(request: SandboxRequest) {
     }
 }
 
+function errorCallbackNotFound(request: SandboxRequest) {
+    return {
+        id: request.id,
+        error: {
+            message: 'callback not found'
+        }
+    }
+}
