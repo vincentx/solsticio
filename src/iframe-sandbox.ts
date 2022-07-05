@@ -45,10 +45,11 @@ export class Sandbox {
     private readonly _self: Window;
     private readonly _context: any;
     private _connected: Window | null = null
+    private _callbacks: Map<string, Function> = new Map()
 
     constructor(config: SandboxConfiguration) {
         this._self = config.sandbox;
-        this._context = config.context;
+        this._context = this.marshal(config.context);
 
         this._self.addEventListener('message', (e) => {
             let request = e.data as SandboxRequest
@@ -66,6 +67,21 @@ export class Sandbox {
             id: request.id,
             response: this._context
         }
+    }
+
+    private marshal(context: any) {
+        let result: any = {}
+        for (let key of Object.keys(context)) {
+            if (context[key] instanceof Function) result[key] = this.marshalFunction(context[key])
+            else result[key] = context[key]
+        }
+        return result
+    }
+
+    private marshalFunction(func: Function) {
+        let id = uuid()
+        this._callbacks.set(id, func)
+        return {id: id}
     }
 
     private send(message: any, target: Window | null = null) {
