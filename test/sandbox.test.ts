@@ -1,9 +1,9 @@
-import {beforeEach, describe, expect, it, vi} from "vitest";
-import {Sandbox} from "../src/iframe-sandbox";
-import {v4} from "uuid";
+import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {Sandbox} from '../src/iframe-sandbox'
+import {v4} from 'uuid'
 
 // @vitest-environment jsdom
-describe("Sandbox", () => {
+describe('Sandbox', () => {
     let _sandbox: HTMLIFrameElement
 
     beforeEach(() => {
@@ -16,12 +16,12 @@ describe("Sandbox", () => {
         })
     })
 
-    describe("connection", () => {
+    describe('connection', () => {
         beforeEach(() => {
-            sandbox({data: "context"})
+            sandbox({data: 'context'})
         })
 
-        it("should response to connect request", async () => {
+        it('should response to connect request', async () => {
             let response = waitForSandboxConnection()
 
             connectSandbox('connect')
@@ -29,7 +29,7 @@ describe("Sandbox", () => {
             await expect(response).resolves.toEqual({id: 'connect', response: {data: 'context'}})
         })
 
-        it("should not response to connect if already connected", async () => {
+        it('should not response to connect if already connected', async () => {
             let promise = new Promise<Error>((resolve) => {
                 window.addEventListener('message', (_) => {
                     window.addEventListener('message', (e) => {
@@ -46,12 +46,12 @@ describe("Sandbox", () => {
         })
     })
 
-    describe("call callback function in sandbox context", () => {
+    describe('call callback function in sandbox context', () => {
         beforeEach(() => {
-            vi.mocked(v4).mockReturnValueOnce("callback-id")
+            vi.mocked(v4).mockReturnValueOnce('callback-id')
         })
 
-        it("should return callback reference in context", async () => {
+        it('should return callback reference in context', async () => {
             sandbox(anyFunction)
 
             let response = waitForSandboxConnection()
@@ -61,8 +61,8 @@ describe("Sandbox", () => {
             await expect(response).resolves.toEqual({id: 'connect', response: {func: {id: 'callback-id'}}})
         })
 
-        it("should be able to call by callback reference", async () => {
-            vi.mocked(v4).mockReturnValueOnce("another")
+        it('should be able to call by callback reference', async () => {
+            vi.mocked(v4).mockReturnValueOnce('another')
 
             let callback = new Promise<any>((resolve) => {
                 sandbox({
@@ -77,7 +77,7 @@ describe("Sandbox", () => {
             await expect(callback).resolves.toEqual('func called')
         })
 
-        it("should be able to call callback within other object", async () => {
+        it('should be able to call callback within other object', async () => {
             let callback = new Promise<any>((resolve) => {
                 sandbox({
                     data: {
@@ -92,7 +92,7 @@ describe("Sandbox", () => {
             await expect(callback).resolves.toEqual('func called')
         })
 
-        it("should not call callback if callback id inexist", async () => {
+        it('should not call callback if callback id inexist', async () => {
             sandbox(anyFunction)
 
             let response = waitForSandboxConnection().then(_ => call('call', 'inexist-callback-id'))
@@ -103,16 +103,16 @@ describe("Sandbox", () => {
             await expect(response).resolves.toEqual({id: 'call', error: {message: 'callback not found'}})
         })
 
-        it("should not call callback if sandbox not connected", async () => {
+        it('should not call callback if sandbox not connected', async () => {
             sandbox(anyFunction)
 
-            let response = waitForSandboxResponse();
+            let response = waitForSandboxResponse()
             call('call', 'callback-id')
 
             await expect(response).resolves.toEqual({id: 'call', error: {message: 'not connected'}})
         })
 
-        it("should not call callback if request not from connected target", async () => {
+        it('should not call callback if request not from connected target', async () => {
             let source = vi.fn()
 
             let _unknown = window.document.createElement('iframe')

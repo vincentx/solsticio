@@ -1,6 +1,6 @@
-import {v4 as uuid} from "uuid";
+import {v4 as uuid} from 'uuid'
 
-type SandboxConnectRequest = { id: string, type: "context" }
+type SandboxConnectRequest = { id: string, type: 'context' }
 type SandboxCallRequest = { id: string, type: 'call', callback: string }
 
 type SandboxRequest = SandboxConnectRequest | SandboxCallRequest
@@ -12,11 +12,11 @@ type SandboxConfiguration = {
 }
 
 export class Proxy<Context> {
-    private _target: Window;
+    private _target: Window
     private readonly _queue: Map<string, (value: any) => void> = new Map()
 
     constructor(receiver: Window, target: Window) {
-        this._target = target;
+        this._target = target
 
         receiver.addEventListener('message', (e) => {
             let message = e.data as { id: string, response: any }
@@ -35,7 +35,7 @@ export class Proxy<Context> {
             this._target.postMessage({
                 id: id,
                 request: 'context'
-            }, "*")
+            }, '*')
         }), time, fallback)
     }
 
@@ -45,22 +45,22 @@ export class Proxy<Context> {
 }
 
 export class Sandbox {
-    private readonly _self: Window;
-    private readonly _context: any;
+    private readonly _self: Window
+    private readonly _context: any
     private _connected: Window | null = null
     private _callbacks: Map<string, Function> = new Map()
 
     constructor(config: SandboxConfiguration) {
-        this._self = config.sandbox;
-        this._context = this.marshal(config.context);
+        this._self = config.sandbox
+        this._context = this.marshal(config.context)
 
         this._self.addEventListener('message', (e) => {
             let request = e.data as SandboxRequest
             switch (request.type) {
-                case "context":
+                case 'context':
                     this.handleContext(request, config.source(e))
                     break
-                case "call":
+                case 'call':
                     this.handleCall(request, config.source(e))
                     break
             }

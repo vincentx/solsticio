@@ -2,7 +2,7 @@ type Name = string
 type Identifier = string
 
 function identifier(plugin: Plugin, component: ExtensionPoint<Extension> | Extension) {
-    return [plugin.id, component.name].join("/")
+    return [plugin.id, component.name].join('/')
 }
 
 type ExtensionPoint<E extends Extension> = {
@@ -34,7 +34,7 @@ export default class Runtime {
 
     constructor(...plugins: Plugin[]) {
         for (let plugin of plugins)
-            if (this._plugins.has(plugin.id)) this.error(plugin, plugin.id, "already installed")
+            if (this._plugins.has(plugin.id)) this.error(plugin, plugin.id, 'already installed')
             else this._plugins.set(plugin.id, plugin)
 
 
@@ -42,7 +42,7 @@ export default class Runtime {
             for (let extensionPoint of plugin.extensionPoints || []) {
                 let id = identifier(plugin, extensionPoint)
                 if (this._extensionPoints.has(id))
-                    this.error(plugin, "extension point", id, "already defined")
+                    this.error(plugin, 'extension point', id, 'already defined')
                 else this.registerExtensionPoint(id, extensionPoint)
             }
 
@@ -50,7 +50,7 @@ export default class Runtime {
             for (let extension of plugin.extensions || []) {
                 let id = identifier(plugin, extension)
                 if (!this._extensions.has(extension.extensionPoint))
-                    this.error(plugin, "extension point", extension.extensionPoint, "not found for", id)
+                    this.error(plugin, 'extension point', extension.extensionPoint, 'not found for', id)
                 else this.registerExtension(id, extension, plugin)
             }
         }
@@ -83,10 +83,10 @@ export default class Runtime {
     private registerExtension(id: Identifier, extension: Extension, plugin: Plugin) {
         let extensionPoint = this._extensionPoints.get(extension.extensionPoint)!;
         try {
-            if (!extensionPoint.validate(extension)) this.error(plugin, id, "not valid for", extension.extensionPoint)
+            if (!extensionPoint.validate(extension)) this.error(plugin, id, 'not valid for', extension.extensionPoint)
             else this._extensions.get(extension.extensionPoint)!.push({...{id: id}, ...extension})
         } catch (e) {
-            this.error(plugin, id, "not valid for", extension.extensionPoint, ":", e)
+            this.error(plugin, id, 'not valid for', extension.extensionPoint, ':', e)
         }
     }
 }
