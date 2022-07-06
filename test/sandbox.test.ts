@@ -105,7 +105,24 @@ describe('Sandbox', () => {
                 type: 'call',
                 function: 'func-id'
             })
+        })
 
+        it('should response function call', async () => {
+            vi.mocked(v4).mockReturnValueOnce('function-call-id')
+
+            connectSandbox('connect', {
+                func: {
+                    _solstice_function_id: 'func-id'
+                }
+            })
+
+            let result = _instance.host().then(host => host.func())
+
+            await waitForSandboxConnection().then(_ => waitForRequest())
+
+            returnFunction('function-call-id', 'return from host')
+
+            await expect(result).resolves.toEqual('return from host')
         })
     })
 
@@ -212,6 +229,10 @@ describe('Sandbox', () => {
 
     function call(id: string, callback: string) {
         _sandbox.contentWindow!.postMessage({id: id, type: 'call', callback: callback}, '*')
+    }
+
+    function returnFunction(id: string, result: any) {
+        _sandbox.contentWindow!.postMessage({id: id, type: 'result', result: result}, '*')
     }
 
     function waitForSandboxResponse(target: Window = window) {

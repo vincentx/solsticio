@@ -2,14 +2,13 @@ import {v4 as uuid} from 'uuid'
 
 type Context = any
 
-type SandboxRequest = SandboxConnectRequest | SandboxCallRequest
+type SandboxRequest = SandboxConnectRequest | SandboxCallRequest | SandboxFunctionResultRequest
 type SandboxConnectRequest = { id: string, type: 'context', context: Context }
 type SandboxCallRequest = { id: string, type: 'call', callback: string }
+type SandboxFunctionResultRequest = { id: string, type: 'result', result: any }
 
 type SandboxResponse = { id: string, response: any }
 type SandboxCallback = { _solstice_callback_id: string }
-// @ts-ignore
-type SandboxFunction = { _solstice_function_id: string }
 
 type SandboxConfiguration = {
     sandbox: Window
@@ -69,6 +68,7 @@ export class Sandbox {
     private readonly _context: Context
     private _connected: Window | null = null
     private _callbacks: Map<string, Function> = new Map()
+    private _resolvers: Map<string, (value: any) => void> = new Map()
     private readonly _host: Promise<Context>
 
     constructor(config: SandboxConfiguration) {
@@ -84,6 +84,9 @@ export class Sandbox {
                         break
                     case 'call':
                         this.handleCall(request, config.source(e))
+                        break
+                    case 'result':
+                        this.handleReturn(request)
                         break
                 }
             })
@@ -109,6 +112,10 @@ export class Sandbox {
         else if (this._connected != target) this.send(errorNotAllowed(request), target)
         else if (!this._callbacks.has(request.callback)) this.send(errorCallbackNotFound(request))
         else this._callbacks.get(request.callback)!.apply(this._context)
+    }
+
+    private handleReturn(request: SandboxFunctionResultRequest) {
+        this._resolvers.get(request.id)!(request.result)
     }
 
     private context(request: SandboxRequest) {
@@ -145,12 +152,13 @@ export class Sandbox {
     }
 
     private unmarshalCallback(id: string, host: Window) {
-        return function () {
-            host.postMessage({
-                id: uuid(),
-                type: 'call',
-                function: id
-            }, '*')
+        let resolvers = this._resolvers
+        return function (): Promise<any> {
+            return new Promise<any>((resolve) => {
+                let messageId = uuid()
+                resolvers.set(messageId, resolve)
+                host.postMessage({id: messageId, type: 'call', function: id}, '*')
+            })
         }
     }
 
