@@ -3,7 +3,7 @@ import {v4 as uuid} from 'uuid'
 type Context = any
 
 type SandboxRequest = SandboxConnectRequest | SandboxCallRequest
-type SandboxConnectRequest = { id: string, type: 'context' }
+type SandboxConnectRequest = { id: string, type: 'context', context: Context }
 type SandboxCallRequest = { id: string, type: 'call', callback: string }
 
 type SandboxResponse = { id: string, response: any }
@@ -67,30 +67,39 @@ export class Sandbox {
     private readonly _context: Context
     private _connected: Window | null = null
     private _callbacks: Map<string, Function> = new Map()
+    private readonly _host: Promise<Context>
 
     constructor(config: SandboxConfiguration) {
         this._self = config.sandbox
         this._context = this.marshal(config.context)
 
-        this._self.addEventListener('message', (e) => {
-            let request = e.data as SandboxRequest
-            switch (request.type) {
-                case 'context':
-                    this.handleContext(request, config.source(e))
-                    break
-                case 'call':
-                    this.handleCall(request, config.source(e))
-                    break
-            }
+        this._host = new Promise<Context>((resolve) => {
+            this._self.addEventListener('message', (e) => {
+                let request = e.data as SandboxRequest
+                switch (request.type) {
+                    case 'context':
+                        this.handleContext(request, config.source(e), resolve)
+                        break
+                    case 'call':
+                        this.handleCall(request, config.source(e))
+                        break
+                }
+            })
         })
     }
 
-    private handleContext(request: SandboxConnectRequest, target: Window) {
+    host(): Promise<Context> {
+        return this._host
+    }
+
+    // @ts-ignore
+    private handleContext(request: SandboxConnectRequest, target: Window, resolve: (value: Context) => void) {
         if (this._connected != null)
             this.send(errorAlreadyConnected(request), target)
         else {
             this._connected = target
             this.send(this.context(request))
+            resolve(request.context)
         }
     }
 

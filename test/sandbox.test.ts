@@ -17,8 +17,11 @@ describe('Sandbox', () => {
     })
 
     describe('connection', () => {
+        // @ts-ignore
+        let _instance: Sandbox
+
         beforeEach(() => {
-            sandbox({data: 'context'})
+            _instance = sandbox({data: 'context'})
         })
 
         it('should response to connect request', async () => {
@@ -44,6 +47,14 @@ describe('Sandbox', () => {
 
             await expect(promise).resolves.toEqual({message: 'already connected'})
         })
+
+        it('should access host context', async () => {
+            let host = _instance.host()
+            connectSandbox('connect', {data: 'from host'})
+
+            await expect(host).resolves.toEqual({data: 'from host'})
+            await waitForSandboxConnection()
+        })
     })
 
     describe('call callback function in sandbox context', () => {
@@ -58,7 +69,10 @@ describe('Sandbox', () => {
 
             connectSandbox('connect')
 
-            await expect(response).resolves.toEqual({id: 'connect', response: {func: {_solstice_callback_id: 'callback-id'}}})
+            await expect(response).resolves.toEqual({
+                id: 'connect',
+                response: {func: {_solstice_callback_id: 'callback-id'}}
+            })
         })
 
         it('should be able to call by callback reference', async () => {
@@ -133,15 +147,15 @@ describe('Sandbox', () => {
     })
 
     function sandbox(context: any, source: (e: MessageEvent) => Window = _ => window) {
-        new Sandbox({
+        return new Sandbox({
             sandbox: _sandbox.contentWindow!,
             context: context,
             source: source
         })
     }
 
-    function connectSandbox(id: string) {
-        _sandbox.contentWindow!.postMessage({id: id, type: 'context'}, '*')
+    function connectSandbox(id: string, context: any = {}) {
+        _sandbox.contentWindow!.postMessage({id: id, type: 'context', context: context}, '*')
     }
 
     function call(id: string, callback: string) {
