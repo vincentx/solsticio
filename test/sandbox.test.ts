@@ -157,7 +157,16 @@ describe('Sandbox', () => {
             await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'not allowed'}})
 
         })
-        it.skip('should ignore unknown function return')
+        it('should ignore unknown function return', async () => {
+            sandbox(anyFunction)
+
+            let response = waitForSandboxConnection().then(_ => returnFunction('function-call-id', 'return result'))
+                .then(_ => waitForSandboxResponse())
+
+            connectSandbox('connect')
+
+            await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'host function not called'}})
+        })
     })
 
     describe('call callback function in sandbox context', () => {

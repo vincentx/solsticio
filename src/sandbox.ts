@@ -117,6 +117,7 @@ export class Sandbox {
     private handleReturn(request: SandboxFunctionResultRequest, target: Window) {
         if (!this._connected) this.send(errorNotConnected(request), target)
         else if (this._connected != target) this.send(errorNotAllowed(request), target)
+        else if (!this._resolvers.has(request.id)) this.send(errorHostFunctionNotCalled(request))
         else this._resolvers.get(request.id)!(request.result)
     }
 
@@ -183,6 +184,10 @@ function errorNotConnected(request: SandboxRequest) {
 
 function errorNotAllowed(request: SandboxRequest) {
     return error(request, 'not allowed')
+}
+
+function errorHostFunctionNotCalled(request: SandboxRequest) {
+    return error(request, 'host function not called')
 }
 
 function error(request: SandboxRequest, message: string) {
