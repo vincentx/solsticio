@@ -116,6 +116,7 @@ export class Sandbox {
 
     private handleReturn(request: SandboxFunctionResultRequest, target: Window) {
         if (!this._connected) this.send(errorNotConnected(request), target)
+        else if (this._connected != target) this.send(errorNotAllowed(request), target)
         else this._resolvers.get(request.id)!(request.result)
     }
 

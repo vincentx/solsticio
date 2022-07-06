@@ -47,13 +47,8 @@ describe('Sandbox', () => {
     })
 
     describe('access host context', () => {
-        let _instance: Sandbox
-        beforeEach(() => {
-            _instance = sandbox({data: 'context'})
-        })
-
         it('should access host context', async () => {
-            let host = _instance.host()
+            let host = sandbox({data: 'context'}).host()
             connectSandbox('connect', {data: 'from host'})
 
             await expect(host).resolves.toEqual({data: 'from host'})
@@ -61,19 +56,21 @@ describe('Sandbox', () => {
         })
 
         it('should unmarshal function from host context', async () => {
+            let instance = sandbox({data: 'context'})
             connectSandbox('connect', {
                 func: {
                     _solstice_function_id: 'func-id'
                 }
             })
 
-            let host = await _instance.host()
+            let host = await instance.host()
 
             expect(typeof host.func).toEqual('function')
             await waitForSandboxConnection()
         })
 
         it('should unmarshal function nested in host context', async () => {
+            let instance = sandbox({data: 'context'})
             connectSandbox('connect', {
                 data: {
                     func: {
@@ -82,7 +79,7 @@ describe('Sandbox', () => {
                 }
             })
 
-            let host = await _instance.host()
+            let host = await instance.host()
 
             expect(typeof host.data.func).toEqual('function')
             await waitForSandboxConnection()
@@ -91,13 +88,15 @@ describe('Sandbox', () => {
         it('should call function from host context', async () => {
             vi.mocked(v4).mockReturnValueOnce('function-call-id')
 
+            let instance = sandbox({data: 'context'})
+
             connectSandbox('connect', {
                 func: {
                     _solstice_function_id: 'func-id'
                 }
             })
 
-            _instance.host().then(host => host.func())
+            instance.host().then(host => host.func())
 
             await expect(waitForSandboxConnection()
                 .then(_ => waitForRequest())).resolves.toEqual({
@@ -110,13 +109,15 @@ describe('Sandbox', () => {
         it('should response function call', async () => {
             vi.mocked(v4).mockReturnValueOnce('function-call-id')
 
+            let instance = sandbox({data: 'context'})
+
             connectSandbox('connect', {
                 func: {
                     _solstice_function_id: 'func-id'
                 }
             })
 
-            let result = _instance.host().then(host => host.func())
+            let result = instance.host().then(host => host.func())
 
             await waitForSandboxConnection().then(_ => waitForRequest())
 
@@ -126,14 +127,37 @@ describe('Sandbox', () => {
         })
 
         it('should not response to function return if not connected', async () => {
+            sandbox({data: 'context'})
             let response = waitForSandboxResponse()
             returnFunction('function-call-id', 'return result')
 
             await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'not connected'}})
         })
 
+        it('should ignore function return from unknown target', async () => {
+            let source = vi.fn()
+
+            let unknown = window.document.createElement('iframe')
+            window.document.body.appendChild(unknown)
+
+            sandbox(anyFunction, source)
+
+            source.mockReturnValueOnce(window)
+            source.mockReturnValueOnce(unknown.contentWindow!)
+
+            let response = waitForSandboxConnection().then(_ => returnFunction('function-call-id', 'return result'))
+                .then(_ => waitForSandboxResponse(unknown.contentWindow!))
+
+            connectSandbox('connect', {
+                func: {
+                    _solstice_function_id: 'func-id'
+                }
+            })
+
+            await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'not allowed'}})
+
+        })
         it.skip('should ignore unknown function return')
-        it.skip('should ignore function return from unknown target')
     })
 
     describe('call callback function in sandbox context', () => {
@@ -208,16 +232,16 @@ describe('Sandbox', () => {
         it('should not call callback if request not from connected target', async () => {
             let source = vi.fn()
 
-            let _unknown = window.document.createElement('iframe')
-            window.document.body.appendChild(_unknown)
+            let unknown = window.document.createElement('iframe')
+            window.document.body.appendChild(unknown)
 
             sandbox(anyFunction, source)
 
             source.mockReturnValueOnce(window)
-            source.mockReturnValueOnce(_unknown.contentWindow!)
+            source.mockReturnValueOnce(unknown.contentWindow!)
 
             let response = waitForSandboxConnection().then(_ => call('call', 'callback-id'))
-                .then(_ => waitForSandboxResponse(_unknown.contentWindow!))
+                .then(_ => waitForSandboxResponse(unknown.contentWindow!))
 
             connectSandbox('connect')
 
