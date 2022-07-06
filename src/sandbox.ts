@@ -8,6 +8,8 @@ type SandboxCallRequest = { id: string, type: 'call', callback: string }
 
 type SandboxResponse = { id: string, response: any }
 type SandboxCallback = { _solstice_callback_id: string }
+// @ts-ignore
+type SandboxFunction = { _solstice_function_id: string }
 
 type SandboxConfiguration = {
     sandbox: Window
@@ -92,14 +94,13 @@ export class Sandbox {
         return this._host
     }
 
-    // @ts-ignore
     private handleContext(request: SandboxConnectRequest, target: Window, resolve: (value: Context) => void) {
         if (this._connected != null)
             this.send(errorAlreadyConnected(request), target)
         else {
             this._connected = target
             this.send(this.context(request))
-            resolve(request.context)
+            resolve(this.unmarshal(request.context, this._connected))
         }
     }
 
@@ -131,6 +132,26 @@ export class Sandbox {
         let id = uuid()
         this._callbacks.set(id, func)
         return {_solstice_callback_id: id}
+    }
+
+    private unmarshal(context: any, host: Window) {
+        let result: any = {}
+        for (let key of Object.keys(context)) {
+            if (context[key]._solstice_function_id) result[key] = this.unmarshalCallback(context[key]._solstice_function_id, host)
+            else if (typeof context[key] === 'object') result[key] = this.unmarshal(context[key], host)
+            else result[key] = context[key]
+        }
+        return result
+    }
+
+    private unmarshalCallback(id: string, host: Window) {
+        return function () {
+            host.postMessage({
+                id: uuid(),
+                type: 'call',
+                function: id
+            }, '*')
+        }
     }
 
     private send(message: any, target: Window | null = null) {

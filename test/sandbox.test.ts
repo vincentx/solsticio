@@ -17,11 +17,8 @@ describe('Sandbox', () => {
     })
 
     describe('connection', () => {
-        // @ts-ignore
-        let _instance: Sandbox
-
         beforeEach(() => {
-            _instance = sandbox({data: 'context'})
+            sandbox({data: 'context'})
         })
 
         it('should response to connect request', async () => {
@@ -47,6 +44,13 @@ describe('Sandbox', () => {
 
             await expect(promise).resolves.toEqual({message: 'already connected'})
         })
+    })
+
+    describe('access host context', () => {
+        let _instance: Sandbox
+        beforeEach(() => {
+            _instance = sandbox({data: 'context'})
+        })
 
         it('should access host context', async () => {
             let host = _instance.host()
@@ -54,6 +58,54 @@ describe('Sandbox', () => {
 
             await expect(host).resolves.toEqual({data: 'from host'})
             await waitForSandboxConnection()
+        })
+
+        it('should unmarshal function from host context', async () => {
+            connectSandbox('connect', {
+                func: {
+                    _solstice_function_id: 'func-id'
+                }
+            })
+
+            let host = await _instance.host()
+
+            expect(typeof host.func).toEqual('function')
+            await waitForSandboxConnection()
+        })
+
+        it('should unmarshal function nested in host context', async () => {
+            connectSandbox('connect', {
+                data: {
+                    func: {
+                        _solstice_function_id: 'func-id'
+                    }
+                }
+            })
+
+            let host = await _instance.host()
+
+            expect(typeof host.data.func).toEqual('function')
+            await waitForSandboxConnection()
+        })
+
+        it('should call function from host context', async () => {
+            vi.mocked(v4).mockReturnValueOnce('function-call-id')
+
+            connectSandbox('connect', {
+                func: {
+                    _solstice_function_id: 'func-id'
+                }
+            })
+
+            _instance.host().then(host => host.func())
+
+            await expect(waitForSandboxConnection()
+                .then(_ => waitForRequest())).resolves.toEqual({
+                id: 'function-call-id',
+                type: 'call',
+                function: 'func-id'
+            })
+
         })
     })
 
@@ -169,6 +221,7 @@ describe('Sandbox', () => {
     }
 
     const waitForSandboxConnection = waitForSandboxResponse
+    const waitForRequest = waitForSandboxResponse
 
     const anyFunction = {
         func: () => {
