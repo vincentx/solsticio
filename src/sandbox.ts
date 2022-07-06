@@ -42,7 +42,7 @@ export class Host {
         return this._sandboxes.get(id)! || {}
     }
 
-    private unmarshal(context: any, sandbox: Window) {
+    private unmarshal(context: Context, sandbox: Window) {
         let result: any = {}
         for (let key of Object.keys(context)) {
             if (context[key]._solstice_callback_id) result[key] = this.unmarshalCallback(context[key]._solstice_callback_id, sandbox)
@@ -86,7 +86,7 @@ export class Sandbox {
                         this.handleCall(request, config.source(e))
                         break
                     case 'result':
-                        this.handleReturn(request)
+                        this.handleReturn(request, config.source(e))
                         break
                 }
             })
@@ -114,8 +114,9 @@ export class Sandbox {
         else this._callbacks.get(request.callback)!.apply(this._context)
     }
 
-    private handleReturn(request: SandboxFunctionResultRequest) {
-        this._resolvers.get(request.id)!(request.result)
+    private handleReturn(request: SandboxFunctionResultRequest, target: Window) {
+        if (!this._connected) this.send(errorNotConnected(request), target)
+        else this._resolvers.get(request.id)!(request.result)
     }
 
     private context(request: SandboxRequest) {
@@ -143,7 +144,7 @@ export class Sandbox {
 
     private unmarshal(context: any, host: Window) {
         let result: any = {}
-        for (let key of Object.keys(context)) {
+        for (let key of Object.keys(context || {})) {
             if (context[key]._solstice_function_id) result[key] = this.unmarshalCallback(context[key]._solstice_function_id, host)
             else if (typeof context[key] === 'object') result[key] = this.unmarshal(context[key], host)
             else result[key] = context[key]

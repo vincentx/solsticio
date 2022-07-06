@@ -124,6 +124,16 @@ describe('Sandbox', () => {
 
             await expect(result).resolves.toEqual('return from host')
         })
+
+        it('should not response to function return if not connected', async () => {
+            let response = waitForSandboxResponse()
+            returnFunction('function-call-id', 'return result')
+
+            await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'not connected'}})
+        })
+
+        it.skip('should ignore unknown function return')
+        it.skip('should ignore function return from unknown target')
     })
 
     describe('call callback function in sandbox context', () => {
