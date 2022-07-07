@@ -165,7 +165,7 @@ describe('Sandbox', () => {
 
             connectSandbox('connect')
 
-            await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'host function not called'}})
+            await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'function not called'}})
         })
     })
 

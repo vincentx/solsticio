@@ -18,51 +18,57 @@ type Configuration = {
     source: (e: MessageEvent) => Window
 }
 
-class Consumer {
-    private readonly _returns: Map<string, (value: any) => void> = new Map()
+class Remote {
+    private readonly _receivers: Map<string, (value: any) => void> = new Map()
 
-    handle(response: Response) {
-        if (!this._returns.has(response.id)) throw 'host function not called'
-        this._returns.get(response.id)!(response.response)
+    receive(response: Response) {
+        if (!this._receivers.has(response.id)) throw 'function not called'
+        this._receivers.get(response.id)!(response.response)
     }
 
-    unmarshal(context: Context, target: Window) {
+    send(target: Window, message: (id: string) => any) {
+        return new Promise<any>((resolve) => {
+            let id = uuid()
+            this._receivers.set(id, resolve)
+            target.postMessage(message(id), '*')
+        })
+    }
+
+    fromRemote(context: Context, target: Window) {
         let result: any = {}
         for (let key of Object.keys(context)) {
-            if (context[key]._solstice_id) result[key] = this.unmarshalCallable(context[key], target)
-            else if (typeof context[key] === 'object') result[key] = this.unmarshal(context[key], target)
+            if (context[key]._solstice_id) result[key] = this.createCallable(context[key], target)
+            else if (typeof context[key] === 'object') result[key] = this.fromRemote(context[key], target)
             else result[key] = context[key]
         }
         return result
     }
 
-    private unmarshalCallable(callable: Callable, target: Window) {
-        let returns = this._returns
+    private createCallable(callable: Callable, target: Window) {
+        let call = this.send.bind(this)
         return function (): Promise<any> {
-            return new Promise<Context>((resolve) => {
-                let id = uuid()
-                returns.set(id, resolve)
-                target.postMessage({id: id, type: 'call', callable: callable._solstice_id}, '*')
+            return call(target, (id) => {
+                return {id: id, type: 'call', callable: callable._solstice_id}
             })
         }
     }
 }
 
-class Provider {
+class Local {
     private readonly _callables: Map<string, Function> = new Map()
     private readonly _context: Context;
-    private readonly _marshaled: Context;
+    private readonly _exported: Context;
 
     constructor(context: Context) {
         this._context = context;
-        this._marshaled = this.marshal(context)
+        this._exported = this.marshal(context)
     }
 
-    marshaled(): Context {
-        return this._marshaled
+    toRemote(): Context {
+        return this._exported
     }
 
-    call(request: CallableRequest) {
+    receive(request: CallableRequest) {
         if (!this._callables.has(request.callable)) throw 'callback not found'
         return this._callables.get(request.callable)!.apply(this._context)
     }
@@ -84,21 +90,22 @@ class Provider {
 }
 
 export class Host {
-    private _resolvers: Map<string, (value: any) => void> = new Map()
-    private _sandboxes: Map<string, any> = new Map()
-    private _functions: Map<string, Function> = new Map()
-    private readonly _context: Context
+    private readonly _sandboxes: Map<string, any> = new Map()
+    private readonly _host: Local
+    private readonly _sandbox: Remote
 
     constructor(config: Configuration) {
-        this._context = marshal(config.context, this.marshalFunction.bind(this))
+        this._host = new Local(config.context)
+        this._sandbox = new Remote()
+
         config.window.addEventListener('message', (e) => {
             let request = e.data as HostRequest
             switch (request.type) {
                 case 'response':
-                    this._resolvers.get(request.id)!(request.response)
+                    this._sandbox.receive(request)
                     break
                 case 'call':
-                    let result = this._functions.get(request.callable)!.apply(this._context)
+                    let result = this._host.receive(request)
                     config.source(e).postMessage({id: request.id, type: 'response', response: result}, '*')
                     break
             }
@@ -107,48 +114,27 @@ export class Host {
     }
 
     connect(id: string, sandbox: Window) {
-        return this.waitForReply(id => sandbox.postMessage({
-                id: id, type: 'context', context: this._context
-            }, '*')
-        ).then(context => this._sandboxes.set(id, unmarshal(context, this.unmarshalCallback(sandbox).bind(this))))
+        return  this._sandbox.send(sandbox, (id) => {
+            return {
+                id: id, type: 'context', context: this._host.toRemote()
+            }
+        }).then(context => this._sandboxes.set(id, this._sandbox.fromRemote(context, sandbox)))
     }
 
     sandbox(id: string): any {
         return this._sandboxes.get(id)! || {}
     }
-
-    private waitForReply(sendMessage: (id: string) => void) {
-        return new Promise<Context>((resolve) => {
-            let id = uuid()
-            this._resolvers.set(id, resolve)
-            sendMessage(id)
-        })
-    }
-
-    private marshalFunction(api: Function): Callable {
-        let id = uuid()
-        this._functions.set(id, api)
-        return {_solstice_id: id}
-    }
-
-    private unmarshalCallback(sandbox: Window) {
-        return function (callable: Callable) {
-            return function () {
-                sandbox.postMessage({id: uuid(), type: 'call', callable: callable._solstice_id}, '*')
-            }
-        }
-    }
 }
 
 export class Sandbox {
     private readonly _hostPromise: Promise<Context>
-    private readonly _context: Provider
-    private readonly _host: Consumer = new Consumer()
+    private readonly _sandbox: Local
+    private readonly _host: Remote = new Remote()
 
     private _connected: Window | null = null
 
     constructor(config: Configuration) {
-        this._context = new Provider(config.context)
+        this._sandbox = new Local(config.context)
 
         this._hostPromise = new Promise<Context>((resolve) => {
             config.window.addEventListener('message', (e) => {
@@ -177,26 +163,26 @@ export class Sandbox {
             this.send(errorAlreadyConnected(request), target)
         else {
             this._connected = target
-            this.send(response(request, this._context.marshaled()))
-            resolve(this._host.unmarshal(request.context, target))
+            this.send(response(request, this._sandbox.toRemote()))
+            resolve(this._host.fromRemote(request.context, target))
         }
     }
 
     private handleCall(request: CallableRequest, target: Window) {
         try {
             this.checkConnectedWith(target)
-            this._context.call(request)
+            this._sandbox.receive(request)
         } catch (message) {
             this.send(error(request, message), target)
         }
     }
 
-    private handleResponse(request: Response, target: Window) {
+    private handleResponse(response: Response, target: Window) {
         try {
             this.checkConnectedWith(target)
-            this._host!.handle(request)
+            this._host!.receive(response)
         } catch (message) {
-            this.send(error(request, message), target)
+            this.send(error(response, message), target)
         }
     }
 
@@ -208,26 +194,6 @@ export class Sandbox {
     private send(message: any, target: Window | null = null) {
         (target! || this._connected).postMessage(message, '*')
     }
-}
-
-function marshal(context: Context, marshalFunction: (f: Function) => Callable): Context {
-    let result: Context = {}
-    for (let key of Object.keys(context)) {
-        if (typeof context[key] === 'object') result[key] = marshal(context[key], marshalFunction)
-        else if (typeof context[key] === 'function') result[key] = marshalFunction(context[key])
-        else result[key] = context[key]
-    }
-    return result
-}
-
-function unmarshal(context: Context, unmarshalCallable: (c: Callable) => Function) {
-    let result: any = {}
-    for (let key of Object.keys(context)) {
-        if (context[key]._solstice_id) result[key] = unmarshalCallable(context[key])
-        else if (typeof context[key] === 'object') result[key] = unmarshal(context[key], unmarshalCallable)
-        else result[key] = context[key]
-    }
-    return result
 }
 
 function errorAlreadyConnected(request: SandboxRequest) {
