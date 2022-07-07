@@ -50,8 +50,38 @@ describe('iFrame communication: Remote', () => {
         })
     })
 
-    function requestRemoteCall(id: string) {
-        return {id: id, type: 'call', callable: 'callable'}
+    describe('restore context from remote', () => {
+        it('should restore object from remote context', () => {
+            let context = _remote.fromRemote({data: 'data'}, _sandbox.contentWindow!)
+            expect(context).toEqual({data: 'data'})
+        })
+
+        it('should restore nested object from remote context', () => {
+            let context = _remote.fromRemote({nested: {data: 'data'}}, _sandbox.contentWindow!)
+            expect(context).toEqual({nested: {data: 'data'}})
+        })
+
+        it('should restore function from remote context', async () => {
+            let message = remoteReceived()
+            let context = _remote.fromRemote({func: {_solstice_id: 'func'}}, _sandbox.contentWindow!)
+
+            context.func()
+
+            await expect(message).resolves.toEqual(requestRemoteCall('message-id', 'func'))
+
+        })
+        it('should restore function nested in other object from remote context', async () => {
+            let message = remoteReceived()
+            let context = _remote.fromRemote({nested: {func: {_solstice_id: 'func'}}}, _sandbox.contentWindow!)
+
+            context.nested.func()
+
+            await expect(message).resolves.toEqual(requestRemoteCall('message-id', 'func'))
+        })
+    })
+
+    function requestRemoteCall(id: string, callable: string = 'callable') {
+        return {id: id, type: 'call', callable: callable}
     }
 
     function response(id: string = 'message-id', response: any = 'received'): CallableResponse {
