@@ -8,9 +8,7 @@ type Response = { id: string, type: 'response', response: any }
 
 type SandboxRequest = SandboxConnectRequest | CallableRequest | Response
 type SandboxConnectRequest = { id: string, type: 'context', context: Context }
-
 type HostRequest = CallableRequest | Response
-type SandboxResponse = { id: string, type: 'response', response: any }
 
 type Configuration = {
     window: Window
@@ -92,11 +90,10 @@ class Local {
 export class Host {
     private readonly _sandboxes: Map<string, any> = new Map()
     private readonly _host: Local
-    private readonly _sandbox: Remote
+    private readonly _sandbox: Remote = new Remote()
 
     constructor(config: Configuration) {
         this._host = new Local(config.context)
-        this._sandbox = new Remote()
 
         config.window.addEventListener('message', (e) => {
             let request = e.data as HostRequest
@@ -114,7 +111,7 @@ export class Host {
     }
 
     connect(id: string, sandbox: Window) {
-        return  this._sandbox.send(sandbox, (id) => {
+        return this._sandbox.send(sandbox, (id) => {
             return {
                 id: id, type: 'context', context: this._host.toRemote()
             }
@@ -139,16 +136,21 @@ export class Sandbox {
         this._hostPromise = new Promise<Context>((resolve) => {
             config.window.addEventListener('message', (e) => {
                 let request = e.data as SandboxRequest
-                switch (request.type) {
-                    case 'context':
-                        this.handleContext(request, config.source(e), resolve)
-                        break
-                    case 'call':
-                        this.handleCall(request, config.source(e))
-                        break
-                    case 'response':
-                        this.handleResponse(request, config.source(e))
-                        break
+                let target = config.source(e)
+                try {
+                    switch (request.type) {
+                        case 'context':
+                            this.handleContext(request, target, resolve)
+                            break
+                        case 'call':
+                            this.handleCall(request, target)
+                            break
+                        case 'response':
+                            this.handleResponse(request, target)
+                            break
+                    }
+                } catch (message) {
+                    this.send(error(request, message), target)
                 }
             })
         })
@@ -159,31 +161,20 @@ export class Sandbox {
     }
 
     private handleContext(request: SandboxConnectRequest, target: Window, resolve: (value: Context) => void) {
-        if (this._connected != null)
-            this.send(errorAlreadyConnected(request), target)
-        else {
-            this._connected = target
-            this.send(response(request, this._sandbox.toRemote()))
-            resolve(this._host.fromRemote(request.context, target))
-        }
+        if (this._connected != null) throw 'already connected'
+        this._connected = target
+        this.send(response(request, this._sandbox.toRemote()))
+        resolve(this._host.fromRemote(request.context, target))
     }
 
     private handleCall(request: CallableRequest, target: Window) {
-        try {
-            this.checkConnectedWith(target)
-            this._sandbox.receive(request)
-        } catch (message) {
-            this.send(error(request, message), target)
-        }
+        this.checkConnectedWith(target)
+        this._sandbox.receive(request)
     }
 
     private handleResponse(response: Response, target: Window) {
-        try {
-            this.checkConnectedWith(target)
-            this._host!.receive(response)
-        } catch (message) {
-            this.send(error(response, message), target)
-        }
+        this.checkConnectedWith(target)
+        this._host!.receive(response)
     }
 
     private checkConnectedWith(target: Window) {
@@ -196,14 +187,10 @@ export class Sandbox {
     }
 }
 
-function errorAlreadyConnected(request: SandboxRequest) {
-    return error(request, 'already connected')
-}
-
 function error(request: SandboxRequest, message: any) {
     return {id: request.id, error: {message: message}}
 }
 
-function response(request: SandboxRequest, response: any): SandboxResponse {
+function response(request: SandboxRequest, response: any): Response {
     return {id: request.id, type: 'response', response: response}
 }
