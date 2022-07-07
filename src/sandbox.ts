@@ -3,15 +3,14 @@ import {v4 as uuid} from 'uuid'
 type Context = any
 
 type Callable = { _solstice_id: string }
+type CallableRequest = { id: string, type: 'call', callable: string }
 
-type SandboxRequest = SandboxConnectRequest | SandboxCallbackRequest | SandboxFunctionResultRequest
+type SandboxRequest = SandboxConnectRequest | CallableRequest | SandboxFunctionResultRequest
 type SandboxConnectRequest = { id: string, type: 'context', context: Context }
-type SandboxCallbackRequest = { id: string, type: 'call', callback: string }
 type SandboxFunctionResultRequest = { id: string, type: 'result', result: any }
 
-type HostRequest = SandboxResponse | SandboxFunctionRequest
+type HostRequest = SandboxResponse | CallableRequest
 type SandboxResponse = { id: string, type: 'response', response: any }
-type SandboxFunctionRequest = { id: string, type: 'call', function: string }
 
 type Configuration = {
     window: Window
@@ -34,7 +33,7 @@ export class Host {
                     this._resolvers.get(request.id)!(request.response)
                     break
                 case 'call':
-                    let result = this._functions.get(request.function)!.apply(this._context)
+                    let result = this._functions.get(request.callable)!.apply(this._context)
                     config.source(e).postMessage({
                         id: request.id,
                         type: 'result',
@@ -67,9 +66,9 @@ export class Host {
     }
 
     private unmarshalCallback(sandbox: Window) {
-        return function (callback: Callable) {
+        return function (callable: Callable) {
             return function () {
-                sandbox.postMessage({id: uuid(), type: 'call', callback: callback._solstice_id}, '*')
+                sandbox.postMessage({id: uuid(), type: 'call', callable: callable._solstice_id}, '*')
             }
         }
     }
@@ -117,11 +116,11 @@ export class Sandbox {
         }
     }
 
-    private handleCall(request: SandboxCallbackRequest, target: Window) {
+    private handleCall(request: CallableRequest, target: Window) {
         if (!this._connected) this.send(errorNotConnected(request), target)
         else if (this._connected != target) this.send(errorNotAllowed(request), target)
-        else if (!this._callbacks.has(request.callback)) this.send(errorCallbackNotFound(request))
-        else this._callbacks.get(request.callback)!.apply(this._context)
+        else if (!this._callbacks.has(request.callable)) this.send(errorCallbackNotFound(request))
+        else this._callbacks.get(request.callable)!.apply(this._context)
     }
 
     private handleReturn(request: SandboxFunctionResultRequest, target: Window) {
@@ -144,7 +143,7 @@ export class Sandbox {
             return new Promise<any>((resolve) => {
                 let messageId = uuid()
                 resolvers.set(messageId, resolve)
-                send({id: messageId, type: 'call', function: callable._solstice_id})
+                send({id: messageId, type: 'call', callable: callable._solstice_id})
             })
         }
     }

@@ -102,7 +102,7 @@ describe('Sandbox', () => {
                 .then(_ => waitForRequest())).resolves.toEqual({
                 id: 'function-call-id',
                 type: 'call',
-                function: 'func-id'
+                callable: 'func-id'
             })
         })
 
@@ -271,8 +271,8 @@ describe('Sandbox', () => {
         _sandbox.contentWindow!.postMessage({id: id, type: 'context', context: context}, '*')
     }
 
-    function call(id: string, callback: string) {
-        _sandbox.contentWindow!.postMessage({id: id, type: 'call', callback: callback}, '*')
+    function call(id: string, callable: string) {
+        _sandbox.contentWindow!.postMessage({id: id, type: 'call', callable: callable}, '*')
     }
 
     function returnFunction(id: string, result: any) {
