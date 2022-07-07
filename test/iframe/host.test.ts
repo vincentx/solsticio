@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it} from 'vitest'
-import {Host, Sandbox} from '../src/sandbox'
+import {Host, Sandbox} from '../../src/iframe/sandbox'
 
 // @vitest-environment jsdom
 describe('Host', () => {

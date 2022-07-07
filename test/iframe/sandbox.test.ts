@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
-import {Sandbox} from '../src/sandbox'
+import {Sandbox} from '../../src/iframe/sandbox'
 import {v4} from 'uuid'
 
 // @vitest-environment jsdom
@@ -165,7 +165,7 @@ describe('Sandbox', () => {
 
             connectSandbox('connect')
 
-            await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'function not called'}})
+            await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'callable not called'}})
         })
     })
 
@@ -227,7 +227,7 @@ describe('Sandbox', () => {
 
             connectSandbox('connect')
 
-            await expect(response).resolves.toEqual({id: 'call', error: {message: 'callback not found'}})
+            await expect(response).resolves.toEqual({id: 'call', error: {message: 'unknown callable'}})
         })
 
         it('should not call callback if sandbox not connected', async () => {
