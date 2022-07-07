@@ -13,8 +13,8 @@ type HostRequest = SandboxResponse | SandboxFunctionRequest
 type SandboxResponse = { id: string, type: 'response', response: any }
 type SandboxFunctionRequest = { id: string, type: 'call', function: string }
 
-type SandboxConfiguration = {
-    sandbox: Window
+type Configuration = {
+    window: Window
     context: Context
     source: (e: MessageEvent) => Window
 }
@@ -25,17 +25,17 @@ export class Host {
     private _functions: Map<string, Function> = new Map()
     private readonly _context: Context;
 
-    constructor(host: Window, context: Context = {}, source: (e: MessageEvent) => Window) {
-        this._context = marshal(context, this.marshalFunction.bind(this))
-        host.addEventListener('message', (e) => {
+    constructor(config: Configuration) {
+        this._context = marshal(config.context, this.marshalFunction.bind(this))
+        config.window.addEventListener('message', (e) => {
             let request = e.data as HostRequest
             switch (request.type) {
-                case "response":
+                case 'response':
                     this._resolvers.get(request.id)!(request.response)
                     break
-                case "call":
+                case 'call':
                     let result = this._functions.get(request.function)!.apply(this._context)
-                    source(e).postMessage({
+                    config.source(e).postMessage({
                         id: request.id,
                         type: 'result',
                         result: result
@@ -76,19 +76,17 @@ export class Host {
 }
 
 export class Sandbox {
-    private readonly _self: Window
     private readonly _context: Context
     private _connected: Window | null = null
     private _callbacks: Map<string, Function> = new Map()
     private _resolvers: Map<string, (value: any) => void> = new Map()
     private readonly _host: Promise<Context>
 
-    constructor(config: SandboxConfiguration) {
-        this._self = config.sandbox
+    constructor(config: Configuration) {
         this._context = marshal(config.context, this.marshalCallback.bind(this))
 
         this._host = new Promise<Context>((resolve) => {
-            this._self.addEventListener('message', (e) => {
+            config.window.addEventListener('message', (e) => {
                 let request = e.data as SandboxRequest
                 switch (request.type) {
                     case 'context':
@@ -114,7 +112,7 @@ export class Sandbox {
             this.send(errorAlreadyConnected(request), target)
         else {
             this._connected = target
-            this.send(this.context(request))
+            this.send(response(request, this._context))
             resolve(unmarshal(request.context, this.unmarshalFunction.bind(this)))
         }
     }
@@ -131,14 +129,6 @@ export class Sandbox {
         else if (this._connected != target) this.send(errorNotAllowed(request), target)
         else if (!this._resolvers.has(request.id)) this.send(errorHostFunctionNotCalled(request))
         else this._resolvers.get(request.id)!(request.result)
-    }
-
-    private context(request: SandboxRequest) {
-        return {
-            id: request.id,
-            type: 'response',
-            response: this._context
-        }
     }
 
     private marshalCallback(func: Function): Callable {
@@ -206,4 +196,8 @@ function errorHostFunctionNotCalled(request: SandboxRequest) {
 
 function error(request: SandboxRequest, message: string) {
     return {id: request.id, error: {message: message}}
+}
+
+function response(request: SandboxRequest, response: any): SandboxResponse {
+    return {id: request.id, type: 'response', response: response}
 }

@@ -15,14 +15,14 @@ describe('Host', () => {
     })
 
     it('should return empty as context for undefined sandbox', () => {
-        let host = new Host(_host.contentWindow!, {}, _ => _sandbox.contentWindow!)
+        let host = $host()
         expect(host.sandbox('@undefined')).toEqual({})
     })
 
     it('should connect to sandbox', async () => {
-        let host = new Host(_host.contentWindow!, {}, _ => _sandbox.contentWindow!)
+        let host = $host()
 
-        sandbox({data: 'data'})
+        $sandbox({data: 'data'})
 
         await host.connect('@sandbox', _sandbox.contentWindow!)
 
@@ -31,12 +31,12 @@ describe('Host', () => {
 
     it('should call callback from sandbox context', async () => {
         let callback = new Promise<any>((resolve) => {
-            sandbox({
+            $sandbox({
                 func: () => resolve('func called')
             })
         })
 
-        let host = new Host(_host.contentWindow!, {}, _ => _sandbox.contentWindow!)
+        let host = $host()
         await host.connect('@sandbox', _sandbox.contentWindow!)
 
         host.sandbox('@sandbox').func()
@@ -46,14 +46,14 @@ describe('Host', () => {
 
     it('should call callback from nested object in context', async () => {
         let callback = new Promise<any>((resolve) => {
-            sandbox({
+            $sandbox({
                 data: {
                     func: () => resolve('func called')
                 }
             })
         })
 
-        let host = new Host(_host.contentWindow!, {}, _ => _sandbox.contentWindow!)
+        let host = $host()
         await host.connect('@sandbox', _sandbox.contentWindow!)
 
         host.sandbox('@sandbox').data.func()
@@ -62,39 +62,37 @@ describe('Host', () => {
     })
 
     it('should send context to sandbox when connect', async () => {
-        let host = new Host(_host.contentWindow!, {
-            data: 'context'
-        }, _ => _sandbox.contentWindow!)
+        let host = $host({data: 'context'})
 
-        let instance = sandbox({data: 'data'})
+        let sandbox = $sandbox({data: 'data'})
 
         await host.connect('@sandbox', _sandbox.contentWindow!)
 
-        await expect(instance.host()).resolves.toEqual({data: 'context'})
+        await expect(sandbox.host()).resolves.toEqual({data: 'context'})
     })
 
     it('should be able to call function from host', async () => {
-        let host = new Host(_host.contentWindow!, {
+        let host = $host({
             func: () => 'from host'
-        }, _ => _sandbox.contentWindow!)
+        })
 
-        let instance = sandbox({data: 'data'})
+        let sandbox = $sandbox({data: 'data'})
 
         await host.connect('@sandbox', _sandbox.contentWindow!)
 
-        let hostContext = await instance.host()
+        let hostContext = await sandbox.host()
 
         await expect(hostContext.func()).resolves.toEqual('from host')
     })
 
     it('should be able to call function nested in host context', async () => {
-        let host = new Host(_host.contentWindow!, {
+        let host = $host({
             data: {
                 func: () => 'from host'
             }
-        }, _ => _sandbox.contentWindow!)
+        })
 
-        let instance = sandbox({data: 'data'})
+        let instance = $sandbox({data: 'data'})
 
         await host.connect('@sandbox', _sandbox.contentWindow!)
 
@@ -103,9 +101,17 @@ describe('Host', () => {
         await expect(hostContext.data.func()).resolves.toEqual('from host')
     })
 
-    function sandbox(context: any, source: (e: MessageEvent) => Window = _ => _host.contentWindow!) {
+    function $sandbox(context: any, source: (e: MessageEvent) => Window = _ => _host.contentWindow!) {
         return new Sandbox({
-            sandbox: _sandbox.contentWindow!,
+            window: _sandbox.contentWindow!,
+            context: context,
+            source: source
+        })
+    }
+
+    function $host(context: any = {}, source: (e: MessageEvent) => Window = _ => _sandbox.contentWindow!) {
+        return new Host({
+            window: _host.contentWindow!,
             context: context,
             source: source
         })

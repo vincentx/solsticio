@@ -261,7 +261,7 @@ describe('Sandbox', () => {
 
     function sandbox(context: any, source: (e: MessageEvent) => Window = _ => window) {
         return new Sandbox({
-            sandbox: _sandbox.contentWindow!,
+            window: _sandbox.contentWindow!,
             context: context,
             source: source
         })
