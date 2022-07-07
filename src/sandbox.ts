@@ -65,7 +65,7 @@ export class Host {
         this._functions.set(id, api)
         return {_solstice_id: id}
     }
-    
+
     private unmarshalCallback(sandbox: Window) {
         return function (callback: Callable) {
             return function () {
