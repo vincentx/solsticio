@@ -1,6 +1,7 @@
-import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {Sandbox} from '../../src/iframe/sandbox'
-import {v4} from 'uuid'
+import * as Communication from '../../src/iframe/communication'
+import {CallableRequest, CallableResponse} from '../../src/iframe/communication'
 
 // @vitest-environment jsdom
 describe('Sandbox', () => {
@@ -9,27 +10,22 @@ describe('Sandbox', () => {
     beforeEach(() => {
         _sandbox = window.document.createElement('iframe')
         window.document.body.appendChild(_sandbox)
-        vi.mock('uuid', () => {
-            return {
-                v4: vi.fn()
-            }
-        })
     })
 
-    describe('connection', () => {
+    describe('connect with remote host', () => {
         beforeEach(() => {
             sandbox({data: 'context'})
         })
 
-        it('should response to connect request', async () => {
+        it('should expose local context to remote host', async () => {
             let response = waitForSandboxConnection()
 
-            connectSandbox('connect')
+            connectSandbox()
 
             await expect(response).resolves.toEqual({id: 'connect', type: 'response', response: {data: 'context'}})
         })
 
-        it('should not response to connect if already connected', async () => {
+        it('should not connect to another host if already connected', async () => {
             let promise = new Promise<Error>((resolve) => {
                 window.addEventListener('message', (_) => {
                     window.addEventListener('message', (e) => {
@@ -46,220 +42,116 @@ describe('Sandbox', () => {
         })
     })
 
-    describe('access host context', () => {
-        it('should access host context', async () => {
-            let host = sandbox({data: 'context'}).host()
-            connectSandbox('connect', {data: 'from host'})
+    describe('access remote host context', () => {
+        const _remote = {
+            fromRemote: vi.fn(),
+            receive: vi.fn(),
+        }
 
-            await expect(host).resolves.toEqual({data: 'from host'})
-            await waitForSandboxConnection()
-        })
+        const _hostContext = {context: 'host'}
 
-        it('should unmarshal function from host context', async () => {
-            let instance = sandbox({data: 'context'})
-            connectSandbox('connect', {
-                func: {
-                    _solstice_id: 'func-id'
-                }
-            })
-
-            let host = await instance.host()
-
-            expect(typeof host.func).toEqual('function')
-            await waitForSandboxConnection()
-        })
-
-        it('should unmarshal function nested in host context', async () => {
-            let instance = sandbox({data: 'context'})
-            connectSandbox('connect', {
-                data: {
-                    func: {
-                        _solstice_id: 'func-id'
-                    }
-                }
-            })
-
-            let host = await instance.host()
-
-            expect(typeof host.data.func).toEqual('function')
-            await waitForSandboxConnection()
-        })
-
-        it('should call function from host context', async () => {
-            vi.mocked(v4).mockReturnValueOnce('function-call-id')
-
-            let instance = sandbox({data: 'context'})
-
-            connectSandbox('connect', {
-                func: {
-                    _solstice_id: 'func-id'
-                }
-            })
-
-            instance.host().then(host => host.func())
-
-            await expect(waitForSandboxConnection()
-                .then(_ => waitForRequest())).resolves.toEqual({
-                id: 'function-call-id',
-                type: 'call',
-                callable: 'func-id'
-            })
-        })
-
-        it('should response function call', async () => {
-            vi.mocked(v4).mockReturnValueOnce('function-call-id')
-
-            let instance = sandbox({data: 'context'})
-
-            connectSandbox('connect', {
-                func: {
-                    _solstice_id: 'func-id'
-                }
-            })
-
-            let result = instance.host().then(host => host.func())
-
-            await waitForSandboxConnection().then(_ => waitForRequest())
-
-            returnFunction('function-call-id', 'return from host')
-
-            await expect(result).resolves.toEqual('return from host')
-        })
-
-        it('should not response to function return if not connected', async () => {
-            sandbox({data: 'context'})
-            let response = waitForSandboxResponse()
-            returnFunction('function-call-id', 'return result')
-
-            await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'not connected'}})
-        })
-
-        it('should ignore function return from unknown target', async () => {
-            let source = vi.fn()
-
-            let unknown = window.document.createElement('iframe')
-            window.document.body.appendChild(unknown)
-
-            sandbox(anyFunction, source)
-
-            source.mockReturnValueOnce(window)
-            source.mockReturnValueOnce(unknown.contentWindow!)
-
-            let response = waitForSandboxConnection().then(_ => returnFunction('function-call-id', 'return result'))
-                .then(_ => waitForSandboxResponse(unknown.contentWindow!))
-
-            connectSandbox('connect', {
-                func: {
-                    _solstice_id: 'func-id'
-                }
-            })
-
-            await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'not allowed'}})
-
-        })
-        it('should ignore unknown function return', async () => {
-            sandbox(anyFunction)
-
-            let response = waitForSandboxConnection().then(_ => returnFunction('function-call-id', 'return result'))
-                .then(_ => waitForSandboxResponse())
-
-            connectSandbox('connect')
-
-            await expect(response).resolves.toEqual({id: 'function-call-id', error: {message: 'callable not called'}})
-        })
-    })
-
-    describe('call callback function in sandbox context', () => {
         beforeEach(() => {
-            vi.mocked(v4).mockReturnValueOnce('callback-id')
+            // @ts-ignore
+            vi.spyOn(Communication, 'Remote').mockImplementation(() => _remote)
         })
 
-        it('should return callback reference in context', async () => {
-            sandbox(anyFunction)
-
-            let response = waitForSandboxConnection()
-
-            connectSandbox('connect')
-
-            await expect(response).resolves.toEqual({
-                id: 'connect',
-                type: 'response',
-                response: {func: {_solstice_id: 'callback-id'}}
-            })
+        afterEach(() => {
+            vi.resetAllMocks()
         })
 
-        it('should be able to call by callback reference', async () => {
-            vi.mocked(v4).mockReturnValueOnce('another')
+        it('should build remote context after connection', async () => {
+            _remote.fromRemote.mockReturnValue({context: 'remote host'})
 
-            let callback = new Promise<any>((resolve) => {
-                sandbox({
-                    func: () => resolve('func called'),
-                    another: () => resolve('another called')
+            let host = sandbox().host()
+
+            connectSandbox('connect', _hostContext)
+            await waitForSandboxConnection()
+
+            await expect(host).resolves.toEqual({context: 'remote host'})
+            expect(_remote.fromRemote.mock.lastCall![0]).toBe(_hostContext)
+        })
+
+        it('should handle remote host response', async () => {
+            let response = new Promise((resolve) => {
+                _remote.fromRemote.mockReturnValue({context: 'remote host'})
+                _remote.receive.mockImplementation((response: CallableResponse) => {
+                    resolve(response)
                 })
             })
 
-            waitForSandboxConnection().then(e => call('call', e.response.func._solstice_id))
-            connectSandbox('connect')
+            sandbox()
+            connectSandbox('connect', _hostContext)
+            waitForSandboxConnection().then(_ => send(hostResponse))
 
-            await expect(callback).resolves.toEqual('func called')
+
+            await expect(response).resolves.toEqual(hostResponse)
         })
 
-        it('should be able to call callback within other object', async () => {
-            let callback = new Promise<any>((resolve) => {
-                sandbox({
-                    data: {
-                        func: () => resolve('func called'),
-                    }
-                })
-            })
+        it('should not handle response if host not connected', async () => notConnected(hostResponse))
 
-            waitForSandboxConnection().then(e => call('call', e.response.data.func._solstice_id))
-            connectSandbox('connect')
-
-            await expect(callback).resolves.toEqual('func called')
-        })
-
-        it('should not call callback if callback id inexist', async () => {
-            sandbox(anyFunction)
-
-            let response = waitForSandboxConnection().then(_ => call('call', 'inexist-callback-id'))
-                .then(_ => waitForSandboxResponse())
-
-            connectSandbox('connect')
-
-            await expect(response).resolves.toEqual({id: 'call', error: {message: 'unknown callable'}})
-        })
-
-        it('should not call callback if sandbox not connected', async () => {
-            sandbox(anyFunction)
-
-            let response = waitForSandboxResponse()
-            call('call', 'callback-id')
-
-            await expect(response).resolves.toEqual({id: 'call', error: {message: 'not connected'}})
-        })
-
-        it('should not call callback if request not from connected target', async () => {
-            let source = vi.fn()
-
-            let unknown = window.document.createElement('iframe')
-            window.document.body.appendChild(unknown)
-
-            sandbox(anyFunction, source)
-
-            source.mockReturnValueOnce(window)
-            source.mockReturnValueOnce(unknown.contentWindow!)
-
-            let response = waitForSandboxConnection().then(_ => call('call', 'callback-id'))
-                .then(_ => waitForSandboxResponse(unknown.contentWindow!))
-
-            connectSandbox('connect')
-
-            await expect(response).resolves.toEqual({id: 'call', error: {message: 'not allowed'}})
-        })
+        it('should not handle response from unknown host', async () => unknownHost(hostResponse))
     })
 
-    function sandbox(context: any, source: (e: MessageEvent) => Window = _ => window) {
+    describe('export context to remote host', () => {
+        const _local = {
+            toRemote: vi.fn(),
+            receive: vi.fn(),
+        }
+
+        beforeEach(() => {
+            // @ts-ignore
+            vi.spyOn(Communication, 'Local').mockImplementation(() => _local)
+        })
+
+        it('should handle call request from host', async () => {
+            let request = new Promise((resolve) => {
+                _local.receive.mockImplementation((request: CallableRequest) => {
+                    resolve(request)
+                })
+            })
+
+            sandbox()
+
+            waitForSandboxConnection().then(_ => send(callRequest))
+            connectSandbox()
+
+            await expect(request).resolves.toEqual(callRequest)
+        })
+
+        it('should not handle call request if host not connected', async () => notConnected(callRequest))
+
+        it('should not handle call request from unknown host', async () => unknownHost(callRequest))
+    })
+
+    async function notConnected(message: { id: string }) {
+        sandbox()
+        let response = waitForSandboxResponse()
+        _sandbox.contentWindow!.postMessage(message, '*')
+
+        await expect(response).resolves.toEqual({id: message.id, error: {message: 'not connected'}})
+    }
+
+    async function unknownHost(message: { id: string }) {
+        let source = vi.fn()
+
+        let unknown = window.document.createElement('iframe')
+        window.document.body.appendChild(unknown)
+
+        sandbox({}, source)
+
+        source.mockReturnValueOnce(window)
+        source.mockReturnValueOnce(unknown.contentWindow!)
+
+        let response = waitForSandboxConnection()
+            .then(_ => _sandbox.contentWindow!.postMessage(message, '*'))
+            .then(_ => waitForSandboxResponse(unknown.contentWindow!))
+
+        connectSandbox()
+
+        await expect(response).resolves.toEqual({id: message.id, error: {message: 'not allowed'}})
+    }
+
+    function sandbox(context: any = {}, source: (e: MessageEvent) => Window = _ => window) {
         return new Sandbox({
             window: _sandbox.contentWindow!,
             context: context,
@@ -267,16 +159,12 @@ describe('Sandbox', () => {
         })
     }
 
-    function connectSandbox(id: string, context: any = {}) {
+    function connectSandbox(id: string = 'connect', context: any = {}) {
         _sandbox.contentWindow!.postMessage({id: id, type: 'context', context: context}, '*')
     }
 
-    function call(id: string, callable: string) {
-        _sandbox.contentWindow!.postMessage({id: id, type: 'call', callable: callable}, '*')
-    }
-
-    function returnFunction(id: string, result: any) {
-        _sandbox.contentWindow!.postMessage({id: id, type: 'response', response: result}, '*')
+    function send(message: any) {
+        _sandbox.contentWindow!.postMessage(message, '*')
     }
 
     function waitForSandboxResponse(target: Window = window) {
@@ -286,11 +174,13 @@ describe('Sandbox', () => {
     }
 
     const waitForSandboxConnection = waitForSandboxResponse
-    const waitForRequest = waitForSandboxResponse
 
-    const anyFunction = {
-        func: () => {
-        }
+    const callRequest = {
+        id: 'message-id', type: 'call', callable: 'callable'
+    }
+
+    const hostResponse = {
+        id: 'message-id', type: 'response', response: 'response'
     }
 
     type Error = {

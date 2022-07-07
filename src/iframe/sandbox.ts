@@ -49,13 +49,12 @@ export class Host {
 export class Sandbox {
     private readonly _hostPromise: Promise<Context>
     private readonly _sandbox: Local
-    private readonly _host: Remote
+    private readonly _host: Remote = new Remote()
 
     private _connected: Window | null = null
 
     constructor(config: Configuration) {
         this._sandbox = new Local(config.context)
-        this._host = new Remote()
 
         this._hostPromise = new Promise<Context>((resolve) => {
             config.window.addEventListener('message', (e) => {
