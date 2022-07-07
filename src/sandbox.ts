@@ -20,30 +20,23 @@ type Configuration = {
 
 class Consumer {
     private readonly _returns: Map<string, (value: any) => void> = new Map()
-    private readonly _context: Context
-    private readonly _target: Window
 
-    constructor(target: Window, marshaled: Context) {
-        this._target = target
-        this._context = this.unmarshal(marshaled)
+    handle(response: Response) {
+        if (!this._returns.has(response.id)) throw 'host function not called'
+        this._returns.get(response.id)!(response.response)
     }
 
-    context(): Context {
-        return this._context
-    }
-
-    private unmarshal(context: Context) {
+    unmarshal(context: Context, target: Window) {
         let result: any = {}
         for (let key of Object.keys(context)) {
-            if (context[key]._solstice_id) result[key] = this.unmarshalCallable(context[key])
-            else if (typeof context[key] === 'object') result[key] = this.unmarshal(context[key])
+            if (context[key]._solstice_id) result[key] = this.unmarshalCallable(context[key], target)
+            else if (typeof context[key] === 'object') result[key] = this.unmarshal(context[key], target)
             else result[key] = context[key]
         }
         return result
     }
 
-    private unmarshalCallable(callable: Callable) {
-        let target = this._target
+    private unmarshalCallable(callable: Callable, target: Window) {
         let returns = this._returns
         return function (): Promise<any> {
             return new Promise<Context>((resolve) => {
@@ -52,11 +45,6 @@ class Consumer {
                 target.postMessage({id: id, type: 'call', callable: callable._solstice_id}, '*')
             })
         }
-    }
-
-    handle(response: Response) {
-        if (!this._returns.has(response.id)) throw 'host function not called'
-        this._returns.get(response.id)!(response.response)
     }
 }
 
@@ -99,7 +87,7 @@ export class Host {
     private _resolvers: Map<string, (value: any) => void> = new Map()
     private _sandboxes: Map<string, any> = new Map()
     private _functions: Map<string, Function> = new Map()
-    private readonly _context: Context;
+    private readonly _context: Context
 
     constructor(config: Configuration) {
         this._context = marshal(config.context, this.marshalFunction.bind(this))
@@ -155,9 +143,9 @@ export class Host {
 export class Sandbox {
     private readonly _hostPromise: Promise<Context>
     private readonly _context: Provider
+    private readonly _host: Consumer = new Consumer()
 
     private _connected: Window | null = null
-    private _host: Consumer | null = null
 
     constructor(config: Configuration) {
         this._context = new Provider(config.context)
@@ -190,8 +178,7 @@ export class Sandbox {
         else {
             this._connected = target
             this.send(response(request, this._context.marshaled()))
-            this._host = new Consumer(this._connected, request.context)
-            resolve(this._host.context())
+            resolve(this._host.unmarshal(request.context, target))
         }
     }
 
