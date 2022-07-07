@@ -18,6 +18,48 @@ type Configuration = {
     source: (e: MessageEvent) => Window
 }
 
+class CallableReturns {
+    private _returns: Map<string, (value: any) => void> = new Map()
+
+    waitFor(send: (id: string) => void) {
+        return new Promise<Context>((resolve) => {
+            let id = uuid()
+            this._returns.set(id, resolve)
+            send(id)
+        })
+    }
+
+    handle(response: Response, send: (message: any) => void) {
+        if (!this._returns.has(response.id)) send(errorHostFunctionNotCalled(response))
+        else this._returns.get(response.id)!(response.response)
+    }
+}
+
+class Callables {
+    private _callables: Map<string, Function> = new Map()
+
+    marshal(context: Context): Context {
+        let result: Context = {}
+        for (let key of Object.keys(context)) {
+            if (typeof context[key] === 'object') result[key] = this.marshal(context[key])
+            else if (typeof context[key] === 'function') result[key] = this.marshalCallable(context[key])
+            else result[key] = context[key]
+        }
+        return result
+    }
+
+    private marshalCallable(func: Function): Callable {
+        let id = uuid()
+        this._callables.set(id, func)
+        return {_solstice_id: id}
+    }
+
+    call(request: CallableRequest, context: any, send: (message: any) => void) {
+        if (!this._callables.has(request.callable)) send(errorCallbackNotFound(request))
+        else this._callables.get(request.callable)!.apply(context)
+    }
+}
+
 export class Host {
     private _resolvers: Map<string, (value: any) => void> = new Map()
     private _sandboxes: Map<string, any> = new Map()
@@ -78,12 +120,13 @@ export class Host {
 export class Sandbox {
     private readonly _context: Context
     private _connected: Window | null = null
-    private _callbacks: Map<string, Function> = new Map()
-    private _resolvers: Map<string, (value: any) => void> = new Map()
     private readonly _host: Promise<Context>
 
+    private _returns: CallableReturns = new CallableReturns()
+    private _callables: Callables = new Callables()
+
     constructor(config: Configuration) {
-        this._context = marshal(config.context, this.marshalCallback.bind(this))
+        this._context = this._callables.marshal(config.context)
 
         this._host = new Promise<Context>((resolve) => {
             config.window.addEventListener('message', (e) => {
@@ -120,37 +163,21 @@ export class Sandbox {
     private handleCall(request: CallableRequest, target: Window) {
         if (!this._connected) this.send(errorNotConnected(request), target)
         else if (this._connected != target) this.send(errorNotAllowed(request), target)
-        else if (!this._callbacks.has(request.callable)) this.send(errorCallbackNotFound(request))
-        else this._callbacks.get(request.callable)!.apply(this._context)
+        else this._callables.call(request, this._context, this.send.bind(this))
     }
 
     private handleResponse(request: Response, target: Window) {
         if (!this._connected) this.send(errorNotConnected(request), target)
         else if (this._connected != target) this.send(errorNotAllowed(request), target)
-        else if (!this._resolvers.has(request.id)) this.send(errorHostFunctionNotCalled(request))
-        else this._resolvers.get(request.id)!(request.response)
-    }
-
-    private marshalCallback(func: Function): Callable {
-        let id = uuid()
-        this._callbacks.set(id, func)
-        return {_solstice_id: id}
+        else this._returns.handle(request, this.send.bind(this))
     }
 
     private unmarshalFunction(callable: Callable) {
-        let waitForReply = this.waitForReply.bind(this)
         let send = this.send.bind(this)
+        let replier = this._returns
         return function (): Promise<any> {
-            return waitForReply(id => send({id: id, type: 'call', callable: callable._solstice_id}))
+            return replier.waitFor(id => send({id: id, type: 'call', callable: callable._solstice_id}))
         }
-    }
-
-    private waitForReply(sendMessage: (id: string) => void) {
-        return new Promise<Context>((resolve) => {
-            let id = uuid()
-            this._resolvers.set(id, resolve)
-            sendMessage(id)
-        })
     }
 
     private send(message: any, target: Window | null = null) {
