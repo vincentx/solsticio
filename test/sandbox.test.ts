@@ -276,7 +276,7 @@ describe('Sandbox', () => {
     }
 
     function returnFunction(id: string, result: any) {
-        _sandbox.contentWindow!.postMessage({id: id, type: 'result', result: result}, '*')
+        _sandbox.contentWindow!.postMessage({id: id, type: 'response', response: result}, '*')
     }
 
     function waitForSandboxResponse(target: Window = window) {

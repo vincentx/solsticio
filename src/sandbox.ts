@@ -4,12 +4,12 @@ type Context = any
 
 type Callable = { _solstice_id: string }
 type CallableRequest = { id: string, type: 'call', callable: string }
+type Response = { id: string, type: 'response', response: any }
 
-type SandboxRequest = SandboxConnectRequest | CallableRequest | SandboxFunctionResultRequest
+type SandboxRequest = SandboxConnectRequest | CallableRequest | Response
 type SandboxConnectRequest = { id: string, type: 'context', context: Context }
-type SandboxFunctionResultRequest = { id: string, type: 'result', result: any }
 
-type HostRequest = SandboxResponse | CallableRequest
+type HostRequest = CallableRequest | Response
 type SandboxResponse = { id: string, type: 'response', response: any }
 
 type Configuration = {
@@ -34,11 +34,7 @@ export class Host {
                     break
                 case 'call':
                     let result = this._functions.get(request.callable)!.apply(this._context)
-                    config.source(e).postMessage({
-                        id: request.id,
-                        type: 'result',
-                        result: result
-                    }, '*')
+                    config.source(e).postMessage({id: request.id, type: 'response', response: result}, '*')
                     break
             }
 
@@ -46,17 +42,22 @@ export class Host {
     }
 
     connect(id: string, sandbox: Window) {
-        return new Promise<Context>((resolve) => {
-            let id = uuid()
-            this._resolvers.set(id, resolve)
-            sandbox.postMessage({
+        return this.waitForReply(id => sandbox.postMessage({
                 id: id, type: 'context', context: this._context
             }, '*')
-        }).then(context => this._sandboxes.set(id, unmarshal(context, this.unmarshalCallback(sandbox).bind(this))))
+        ).then(context => this._sandboxes.set(id, unmarshal(context, this.unmarshalCallback(sandbox).bind(this))))
     }
 
     sandbox(id: string): any {
         return this._sandboxes.get(id)! || {}
+    }
+
+    private waitForReply(sendMessage: (id: string) => void) {
+        return new Promise<Context>((resolve) => {
+            let id = uuid()
+            this._resolvers.set(id, resolve)
+            sendMessage(id)
+        })
     }
 
     private marshalFunction(api: Function): Callable {
@@ -94,8 +95,8 @@ export class Sandbox {
                     case 'call':
                         this.handleCall(request, config.source(e))
                         break
-                    case 'result':
-                        this.handleReturn(request, config.source(e))
+                    case 'response':
+                        this.handleResponse(request, config.source(e))
                         break
                 }
             })
@@ -123,11 +124,11 @@ export class Sandbox {
         else this._callbacks.get(request.callable)!.apply(this._context)
     }
 
-    private handleReturn(request: SandboxFunctionResultRequest, target: Window) {
+    private handleResponse(request: Response, target: Window) {
         if (!this._connected) this.send(errorNotConnected(request), target)
         else if (this._connected != target) this.send(errorNotAllowed(request), target)
         else if (!this._resolvers.has(request.id)) this.send(errorHostFunctionNotCalled(request))
-        else this._resolvers.get(request.id)!(request.result)
+        else this._resolvers.get(request.id)!(request.response)
     }
 
     private marshalCallback(func: Function): Callable {
@@ -137,15 +138,19 @@ export class Sandbox {
     }
 
     private unmarshalFunction(callable: Callable) {
-        let resolvers = this._resolvers
+        let waitForReply = this.waitForReply.bind(this)
         let send = this.send.bind(this)
         return function (): Promise<any> {
-            return new Promise<any>((resolve) => {
-                let messageId = uuid()
-                resolvers.set(messageId, resolve)
-                send({id: messageId, type: 'call', callable: callable._solstice_id})
-            })
+            return waitForReply(id => send({id: id, type: 'call', callable: callable._solstice_id}))
         }
+    }
+
+    private waitForReply(sendMessage: (id: string) => void) {
+        return new Promise<Context>((resolve) => {
+            let id = uuid()
+            this._resolvers.set(id, resolve)
+            sendMessage(id)
+        })
     }
 
     private send(message: any, target: Window | null = null) {
