@@ -53,7 +53,7 @@ export class Host {
             sandbox.postMessage({
                 id: id, type: 'context', context: this._context
             }, '*')
-        }).then(context => this._sandboxes.set(id, this.unmarshal(context, sandbox)))
+        }).then(context => this._sandboxes.set(id, unmarshal(context, this.unmarshalCallback(sandbox).bind(this))))
     }
 
     sandbox(id: string): any {
@@ -65,20 +65,12 @@ export class Host {
         this._functions.set(id, api)
         return {_solstice_id: id}
     }
-
-    private unmarshal(context: Context, sandbox: Window) {
-        let result: any = {}
-        for (let key of Object.keys(context)) {
-            if (context[key]._solstice_id) result[key] = this.unmarshalCallback(context[key]._solstice_id, sandbox)
-            else if (typeof context[key] === 'object') result[key] = this.unmarshal(context[key], sandbox)
-            else result[key] = context[key]
-        }
-        return result
-    }
-
-    private unmarshalCallback(id: string, sandbox: Window) {
-        return function () {
-            sandbox.postMessage({id: uuid(), type: 'call', callback: id}, '*')
+    
+    private unmarshalCallback(sandbox: Window) {
+        return function (callback: Callable) {
+            return function () {
+                sandbox.postMessage({id: uuid(), type: 'call', callback: callback._solstice_id}, '*')
+            }
         }
     }
 }
@@ -123,7 +115,7 @@ export class Sandbox {
         else {
             this._connected = target
             this.send(this.context(request))
-            resolve(this.unmarshal(request.context, this._connected))
+            resolve(unmarshal(request.context, this.unmarshalFunction.bind(this)))
         }
     }
 
@@ -155,23 +147,14 @@ export class Sandbox {
         return {_solstice_id: id}
     }
 
-    private unmarshal(context: any, host: Window) {
-        let result: any = {}
-        for (let key of Object.keys(context)) {
-            if (context[key]._solstice_id) result[key] = this.unmarshalFunction(context[key]._solstice_id, host)
-            else if (typeof context[key] === 'object') result[key] = this.unmarshal(context[key], host)
-            else result[key] = context[key]
-        }
-        return result
-    }
-
-    private unmarshalFunction(id: string, host: Window) {
+    private unmarshalFunction(callable: Callable) {
         let resolvers = this._resolvers
+        let send = this.send.bind(this)
         return function (): Promise<any> {
             return new Promise<any>((resolve) => {
                 let messageId = uuid()
                 resolvers.set(messageId, resolve)
-                host.postMessage({id: messageId, type: 'call', function: id}, '*')
+                send({id: messageId, type: 'call', function: callable._solstice_id})
             })
         }
     }
@@ -186,6 +169,16 @@ function marshal(context: Context, marshalFunction: (f: Function) => Callable): 
     for (let key of Object.keys(context)) {
         if (typeof context[key] === 'object') result[key] = marshal(context[key], marshalFunction)
         else if (typeof context[key] === 'function') result[key] = marshalFunction(context[key])
+        else result[key] = context[key]
+    }
+    return result
+}
+
+function unmarshal(context: Context, unmarshalCallable: (c: Callable) => Function) {
+    let result: any = {}
+    for (let key of Object.keys(context)) {
+        if (context[key]._solstice_id) result[key] = unmarshalCallable(context[key])
+        else if (typeof context[key] === 'object') result[key] = unmarshal(context[key], unmarshalCallable)
         else result[key] = context[key]
     }
     return result
