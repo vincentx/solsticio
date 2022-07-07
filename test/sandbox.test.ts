@@ -59,7 +59,7 @@ describe('Sandbox', () => {
             let instance = sandbox({data: 'context'})
             connectSandbox('connect', {
                 func: {
-                    _solstice_function_id: 'func-id'
+                    _solstice_id: 'func-id'
                 }
             })
 
@@ -74,7 +74,7 @@ describe('Sandbox', () => {
             connectSandbox('connect', {
                 data: {
                     func: {
-                        _solstice_function_id: 'func-id'
+                        _solstice_id: 'func-id'
                     }
                 }
             })
@@ -92,7 +92,7 @@ describe('Sandbox', () => {
 
             connectSandbox('connect', {
                 func: {
-                    _solstice_function_id: 'func-id'
+                    _solstice_id: 'func-id'
                 }
             })
 
@@ -113,7 +113,7 @@ describe('Sandbox', () => {
 
             connectSandbox('connect', {
                 func: {
-                    _solstice_function_id: 'func-id'
+                    _solstice_id: 'func-id'
                 }
             })
 
@@ -150,7 +150,7 @@ describe('Sandbox', () => {
 
             connectSandbox('connect', {
                 func: {
-                    _solstice_function_id: 'func-id'
+                    _solstice_id: 'func-id'
                 }
             })
 
@@ -184,7 +184,7 @@ describe('Sandbox', () => {
             await expect(response).resolves.toEqual({
                 id: 'connect',
                 type: 'response',
-                response: {func: {_solstice_callback_id: 'callback-id'}}
+                response: {func: {_solstice_id: 'callback-id'}}
             })
         })
 
@@ -198,7 +198,7 @@ describe('Sandbox', () => {
                 })
             })
 
-            waitForSandboxConnection().then(e => call('call', e.response.func._solstice_callback_id))
+            waitForSandboxConnection().then(e => call('call', e.response.func._solstice_id))
             connectSandbox('connect')
 
             await expect(callback).resolves.toEqual('func called')
@@ -213,7 +213,7 @@ describe('Sandbox', () => {
                 })
             })
 
-            waitForSandboxConnection().then(e => call('call', e.response.data.func._solstice_callback_id))
+            waitForSandboxConnection().then(e => call('call', e.response.data.func._solstice_id))
             connectSandbox('connect')
 
             await expect(callback).resolves.toEqual('func called')

@@ -2,6 +2,8 @@ import {v4 as uuid} from 'uuid'
 
 type Context = any
 
+type Callable = { _solstice_id: string }
+
 type SandboxRequest = SandboxConnectRequest | SandboxCallbackRequest | SandboxFunctionResultRequest
 type SandboxConnectRequest = { id: string, type: 'context', context: Context }
 type SandboxCallbackRequest = { id: string, type: 'call', callback: string }
@@ -10,8 +12,6 @@ type SandboxFunctionResultRequest = { id: string, type: 'result', result: any }
 type HostRequest = SandboxResponse | SandboxFunctionRequest
 type SandboxResponse = { id: string, type: 'response', response: any }
 type SandboxFunctionRequest = { id: string, type: 'call', function: string }
-type SandboxCallback = { _solstice_callback_id: string }
-type SandboxFunction = { _solstice_function_id: string }
 
 type SandboxConfiguration = {
     sandbox: Window
@@ -26,7 +26,7 @@ export class Host {
     private readonly _context: Context;
 
     constructor(host: Window, context: Context = {}, source: (e: MessageEvent) => Window) {
-        this._context = this.marshal(context)
+        this._context = marshal(context, this.marshalFunction.bind(this))
         host.addEventListener('message', (e) => {
             let request = e.data as HostRequest
             switch (request.type) {
@@ -60,26 +60,16 @@ export class Host {
         return this._sandboxes.get(id)! || {}
     }
 
-    private marshal(context: Context) {
-        let result: any = {}
-        for (let key of Object.keys(context)) {
-            if (typeof context[key] === 'function') result[key] = this.marshalFunction(context[key])
-            else if (typeof context[key] === 'object') result[key] = this.marshal(context[key])
-            else result[key] = context[key]
-        }
-        return result
-    }
-
-    private marshalFunction(api: Function): SandboxFunction {
+    private marshalFunction(api: Function): Callable {
         let id = uuid()
         this._functions.set(id, api)
-        return {_solstice_function_id: id}
+        return {_solstice_id: id}
     }
 
     private unmarshal(context: Context, sandbox: Window) {
         let result: any = {}
         for (let key of Object.keys(context)) {
-            if (context[key]._solstice_callback_id) result[key] = this.unmarshalCallback(context[key]._solstice_callback_id, sandbox)
+            if (context[key]._solstice_id) result[key] = this.unmarshalCallback(context[key]._solstice_id, sandbox)
             else if (typeof context[key] === 'object') result[key] = this.unmarshal(context[key], sandbox)
             else result[key] = context[key]
         }
@@ -88,11 +78,7 @@ export class Host {
 
     private unmarshalCallback(id: string, sandbox: Window) {
         return function () {
-            sandbox.postMessage({
-                id: uuid(),
-                type: 'call',
-                callback: id
-            }, '*')
+            sandbox.postMessage({id: uuid(), type: 'call', callback: id}, '*')
         }
     }
 }
@@ -107,7 +93,7 @@ export class Sandbox {
 
     constructor(config: SandboxConfiguration) {
         this._self = config.sandbox
-        this._context = this.marshal(config.context)
+        this._context = marshal(config.context, this.marshalCallback.bind(this))
 
         this._host = new Promise<Context>((resolve) => {
             this._self.addEventListener('message', (e) => {
@@ -163,26 +149,16 @@ export class Sandbox {
         }
     }
 
-    private marshal(context: Context) {
-        let result: Context = {}
-        for (let key of Object.keys(context)) {
-            if (typeof context[key] === 'object') result[key] = this.marshal(context[key])
-            else if (context[key] instanceof Function) result[key] = this.marshalCallback(context[key])
-            else result[key] = context[key]
-        }
-        return result
-    }
-
-    private marshalCallback(func: Function): SandboxCallback {
+    private marshalCallback(func: Function): Callable {
         let id = uuid()
         this._callbacks.set(id, func)
-        return {_solstice_callback_id: id}
+        return {_solstice_id: id}
     }
 
     private unmarshal(context: any, host: Window) {
         let result: any = {}
         for (let key of Object.keys(context)) {
-            if (context[key]._solstice_function_id) result[key] = this.unmarshalFunction(context[key]._solstice_function_id, host)
+            if (context[key]._solstice_id) result[key] = this.unmarshalFunction(context[key]._solstice_id, host)
             else if (typeof context[key] === 'object') result[key] = this.unmarshal(context[key], host)
             else result[key] = context[key]
         }
@@ -203,6 +179,16 @@ export class Sandbox {
     private send(message: any, target: Window | null = null) {
         (target! || this._connected).postMessage(message, '*')
     }
+}
+
+function marshal(context: Context, marshalFunction: (f: Function) => Callable): Context {
+    let result: Context = {}
+    for (let key of Object.keys(context)) {
+        if (typeof context[key] === 'object') result[key] = marshal(context[key], marshalFunction)
+        else if (typeof context[key] === 'function') result[key] = marshalFunction(context[key])
+        else result[key] = context[key]
+    }
+    return result
 }
 
 function errorAlreadyConnected(request: SandboxRequest) {
