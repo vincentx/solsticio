@@ -18,33 +18,73 @@ type Configuration = {
     source: (e: MessageEvent) => Window
 }
 
-class CallableReturns {
-    private _returns: Map<string, (value: any) => void> = new Map()
+class Consumer {
+    private readonly _returns: Map<string, (value: any) => void> = new Map()
+    private readonly _context: Context
+    private readonly _target: Window
 
-    waitFor(send: (id: string) => void) {
-        return new Promise<Context>((resolve) => {
-            let id = uuid()
-            this._returns.set(id, resolve)
-            send(id)
-        })
+    constructor(target: Window, marshaled: Context) {
+        this._target = target
+        this._context = this.unmarshal(marshaled)
     }
 
-    handle(response: Response, send: (message: any) => void) {
-        if (!this._returns.has(response.id)) send(errorHostFunctionNotCalled(response))
-        else this._returns.get(response.id)!(response.response)
+    context(): Context {
+        return this._context
+    }
+
+    private unmarshal(context: Context) {
+        let result: any = {}
+        for (let key of Object.keys(context)) {
+            if (context[key]._solstice_id) result[key] = this.unmarshalCallable(context[key])
+            else if (typeof context[key] === 'object') result[key] = this.unmarshal(context[key])
+            else result[key] = context[key]
+        }
+        return result
+    }
+
+    private unmarshalCallable(callable: Callable) {
+        let target = this._target
+        let returns = this._returns
+        return function (): Promise<any> {
+            return new Promise<Context>((resolve) => {
+                let id = uuid()
+                returns.set(id, resolve)
+                target.postMessage({id: id, type: 'call', callable: callable._solstice_id}, '*')
+            })
+        }
+    }
+
+    handle(response: Response) {
+        if (!this._returns.has(response.id)) throw 'host function not called'
+        this._returns.get(response.id)!(response.response)
     }
 }
 
-class Callables {
-    private _callables: Map<string, Function> = new Map()
+class Provider {
+    private readonly _callables: Map<string, Function> = new Map()
+    private readonly _context: Context;
+    private readonly _marshaled: Context;
 
-    marshal(context: Context): Context {
+    constructor(context: Context) {
+        this._context = context;
+        this._marshaled = this.marshal(context)
+    }
+
+    marshaled(): Context {
+        return this._marshaled
+    }
+
+    call(request: CallableRequest) {
+        if (!this._callables.has(request.callable)) throw 'callback not found'
+        return this._callables.get(request.callable)!.apply(this._context)
+    }
+
+    private marshal(context: Context): Context {
         let result: Context = {}
-        for (let key of Object.keys(context)) {
+        for (let key of Object.keys(context))
             if (typeof context[key] === 'object') result[key] = this.marshal(context[key])
             else if (typeof context[key] === 'function') result[key] = this.marshalCallable(context[key])
             else result[key] = context[key]
-        }
         return result
     }
 
@@ -52,11 +92,6 @@ class Callables {
         let id = uuid()
         this._callables.set(id, func)
         return {_solstice_id: id}
-    }
-
-    call(request: CallableRequest, context: any, send: (message: any) => void) {
-        if (!this._callables.has(request.callable)) send(errorCallbackNotFound(request))
-        else this._callables.get(request.callable)!.apply(context)
     }
 }
 
@@ -118,17 +153,16 @@ export class Host {
 }
 
 export class Sandbox {
-    private readonly _context: Context
-    private _connected: Window | null = null
-    private readonly _host: Promise<Context>
+    private readonly _hostPromise: Promise<Context>
+    private readonly _context: Provider
 
-    private _returns: CallableReturns = new CallableReturns()
-    private _callables: Callables = new Callables()
+    private _connected: Window | null = null
+    private _host: Consumer | null = null
 
     constructor(config: Configuration) {
-        this._context = this._callables.marshal(config.context)
+        this._context = new Provider(config.context)
 
-        this._host = new Promise<Context>((resolve) => {
+        this._hostPromise = new Promise<Context>((resolve) => {
             config.window.addEventListener('message', (e) => {
                 let request = e.data as SandboxRequest
                 switch (request.type) {
@@ -147,7 +181,7 @@ export class Sandbox {
     }
 
     host(): Promise<Context> {
-        return this._host
+        return this._hostPromise
     }
 
     private handleContext(request: SandboxConnectRequest, target: Window, resolve: (value: Context) => void) {
@@ -155,29 +189,33 @@ export class Sandbox {
             this.send(errorAlreadyConnected(request), target)
         else {
             this._connected = target
-            this.send(response(request, this._context))
-            resolve(unmarshal(request.context, this.unmarshalFunction.bind(this)))
+            this.send(response(request, this._context.marshaled()))
+            this._host = new Consumer(this._connected, request.context)
+            resolve(this._host.context())
         }
     }
 
     private handleCall(request: CallableRequest, target: Window) {
-        if (!this._connected) this.send(errorNotConnected(request), target)
-        else if (this._connected != target) this.send(errorNotAllowed(request), target)
-        else this._callables.call(request, this._context, this.send.bind(this))
+        try {
+            this.checkConnectedWith(target)
+            this._context.call(request)
+        } catch (message) {
+            this.send(error(request, message), target)
+        }
     }
 
     private handleResponse(request: Response, target: Window) {
-        if (!this._connected) this.send(errorNotConnected(request), target)
-        else if (this._connected != target) this.send(errorNotAllowed(request), target)
-        else this._returns.handle(request, this.send.bind(this))
+        try {
+            this.checkConnectedWith(target)
+            this._host!.handle(request)
+        } catch (message) {
+            this.send(error(request, message), target)
+        }
     }
 
-    private unmarshalFunction(callable: Callable) {
-        let send = this.send.bind(this)
-        let replier = this._returns
-        return function (): Promise<any> {
-            return replier.waitFor(id => send({id: id, type: 'call', callable: callable._solstice_id}))
-        }
+    private checkConnectedWith(target: Window) {
+        if (!this._connected) throw 'not connected'
+        if (this._connected != target) throw 'not allowed'
     }
 
     private send(message: any, target: Window | null = null) {
@@ -209,23 +247,7 @@ function errorAlreadyConnected(request: SandboxRequest) {
     return error(request, 'already connected')
 }
 
-function errorCallbackNotFound(request: SandboxRequest) {
-    return error(request, 'callback not found')
-}
-
-function errorNotConnected(request: SandboxRequest) {
-    return error(request, 'not connected')
-}
-
-function errorNotAllowed(request: SandboxRequest) {
-    return error(request, 'not allowed')
-}
-
-function errorHostFunctionNotCalled(request: SandboxRequest) {
-    return error(request, 'host function not called')
-}
-
-function error(request: SandboxRequest, message: string) {
+function error(request: SandboxRequest, message: any) {
     return {id: request.id, error: {message: message}}
 }
 
