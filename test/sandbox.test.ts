@@ -26,7 +26,7 @@ describe('Sandbox', () => {
 
             connectSandbox('connect')
 
-            await expect(response).resolves.toEqual({id: 'connect', response: {data: 'context'}})
+            await expect(response).resolves.toEqual({id: 'connect', type: 'response', response: {data: 'context'}})
         })
 
         it('should not response to connect if already connected', async () => {
@@ -183,6 +183,7 @@ describe('Sandbox', () => {
 
             await expect(response).resolves.toEqual({
                 id: 'connect',
+                type: 'response',
                 response: {func: {_solstice_callback_id: 'callback-id'}}
             })
         })

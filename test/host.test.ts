@@ -15,12 +15,12 @@ describe('Host', () => {
     })
 
     it('should return empty as context for undefined sandbox', () => {
-        let host = new Host(_host.contentWindow!)
+        let host = new Host(_host.contentWindow!, {}, _ => _sandbox.contentWindow!)
         expect(host.sandbox('@undefined')).toEqual({})
     })
 
     it('should connect to sandbox', async () => {
-        let host = new Host(_host.contentWindow!)
+        let host = new Host(_host.contentWindow!, {}, _ => _sandbox.contentWindow!)
 
         sandbox({data: 'data'})
 
@@ -36,7 +36,7 @@ describe('Host', () => {
             })
         })
 
-        let host = new Host(_host.contentWindow!)
+        let host = new Host(_host.contentWindow!, {}, _ => _sandbox.contentWindow!)
         await host.connect('@sandbox', _sandbox.contentWindow!)
 
         host.sandbox('@sandbox').func()
@@ -53,7 +53,7 @@ describe('Host', () => {
             })
         })
 
-        let host = new Host(_host.contentWindow!)
+        let host = new Host(_host.contentWindow!, {}, _ => _sandbox.contentWindow!)
         await host.connect('@sandbox', _sandbox.contentWindow!)
 
         host.sandbox('@sandbox').data.func()
@@ -61,8 +61,50 @@ describe('Host', () => {
         await expect(callback).resolves.toEqual('func called')
     })
 
+    it('should send context to sandbox when connect', async () => {
+        let host = new Host(_host.contentWindow!, {
+            data: 'context'
+        }, _ => _sandbox.contentWindow!)
+
+        let instance = sandbox({data: 'data'})
+
+        await host.connect('@sandbox', _sandbox.contentWindow!)
+
+        await expect(instance.host()).resolves.toEqual({data: 'context'})
+    })
+
+    it('should be able to call function from host', async () => {
+        let host = new Host(_host.contentWindow!, {
+            func: () => 'from host'
+        }, _ => _sandbox.contentWindow!)
+
+        let instance = sandbox({data: 'data'})
+
+        await host.connect('@sandbox', _sandbox.contentWindow!)
+
+        let hostContext = await instance.host()
+
+        await expect(hostContext.func()).resolves.toEqual('from host')
+    })
+
+    it('should be able to call function nested in host context', async () => {
+        let host = new Host(_host.contentWindow!, {
+            data: {
+                func: () => 'from host'
+            }
+        }, _ => _sandbox.contentWindow!)
+
+        let instance = sandbox({data: 'data'})
+
+        await host.connect('@sandbox', _sandbox.contentWindow!)
+
+        let hostContext = await instance.host()
+
+        await expect(hostContext.data.func()).resolves.toEqual('from host')
+    })
+
     function sandbox(context: any, source: (e: MessageEvent) => Window = _ => _host.contentWindow!) {
-        new Sandbox({
+        return new Sandbox({
             sandbox: _sandbox.contentWindow!,
             context: context,
             source: source
