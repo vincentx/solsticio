@@ -1,4 +1,4 @@
-import {Plugin, PluginError} from './runtime'
+import {isPlugin, Plugin, PluginError} from './runtime'
 import {Host, Configuration} from './iframe/sandbox'
 
 export class Registry {
@@ -21,9 +21,11 @@ export class Registry {
 
     sandbox(id: string, sandbox: Window) {
         return this._host.connect(id, sandbox).then(context => {
-            let plugin = context as Plugin
-            if (plugin.id !== id) this.error(plugin, 'sandbox id', plugin.id, 'instead of', id)
-            else this.plugin(plugin)
+            if (isPlugin(context)) {
+                let plugin = context as Plugin
+                if (plugin.id !== id) this.error(plugin, 'sandbox', plugin.id, 'can not be registered as', id)
+                else this.plugin(plugin)
+            } else this.error({id: id}, 'sandbox', id, 'is not a plugin')
         })
     }
 

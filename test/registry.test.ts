@@ -59,7 +59,16 @@ describe('Plugin Registry', () => {
         await _registry.sandbox('@ui', _sandbox.contentWindow!)
 
         expect(_registry.plugins()).toEqual([])
-        expect(_registry.errors()).toEqual([{id: '@ui-new', message: 'sandbox id @ui-new instead of @ui'}])
+        expect(_registry.errors()).toEqual([{id: '@ui-new', message: 'sandbox @ui-new can not be registered as @ui'}])
+    })
+
+    it('should not register sandbox plugin if not valid plugin type', async () => {
+        sandbox({})
+
+        await _registry.sandbox('@ui', _sandbox.contentWindow!)
+
+        expect(_registry.plugins()).toEqual([])
+        expect(_registry.errors()).toEqual([{id: '@ui', message: 'sandbox @ui is not a plugin'}])
     })
 
     function sandbox(context: Context, target: Window = _sandbox.contentWindow!) {

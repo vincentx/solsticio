@@ -26,6 +26,10 @@ export type PluginError = {
     message: string
 }
 
+export function isPlugin(context: any): context is Plugin {
+    return context.id
+}
+
 export default class Runtime {
     private _plugins: Map<Identifier, Plugin> = new Map()
     private _extensionPoints: Map<Identifier, ExtensionPoint<any>> = new Map()
