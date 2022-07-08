@@ -1,4 +1,5 @@
 import {CallableRequest, CallableResponse, Context, Local, Remote} from './communication'
+import {ErrorCollector} from "../error";
 
 type SandboxRequest = SandboxConnectRequest | CallableRequest | CallableResponse
 type SandboxConnectRequest = { id: string, type: 'context', context: Context }
@@ -8,6 +9,7 @@ export type Configuration = {
     window: Window
     context: Context
     source: (e: MessageEvent) => Window
+    errors?: ErrorCollector
 }
 
 export class Host {

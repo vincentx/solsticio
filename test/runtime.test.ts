@@ -148,6 +148,6 @@ describe('Solstice runtime', () => {
     })
 
     function install(...plugins: Plugin[]) {
-        return new Runtime(new ErrorCollector((error) => _errors.push(error)), ...plugins)
+        return new Runtime(new ErrorCollector(e => _errors.push(e)), ...plugins)
     }
 })

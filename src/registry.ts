@@ -1,17 +1,19 @@
-import {isPlugin, Plugin, PluginError} from './runtime'
-import {Host, Configuration} from './iframe/sandbox'
+import {isPlugin, Plugin} from './runtime'
+import {Configuration, Host} from './iframe/sandbox'
+import {ErrorCollector} from "./error";
 
 export class Registry {
-    private _plugins: Map<string, Plugin> = new Map()
-    private _errors: PluginError[] = []
-    private _host: Host
+    private readonly _plugins: Map<string, Plugin> = new Map()
+    private readonly _host: Host
+    private readonly _errors: ErrorCollector
 
     constructor(config: Configuration) {
         this._host = new Host(config)
+        this._errors = config.errors!
     }
 
     plugin(plugin: Plugin) {
-        if (this._plugins.has(plugin.id)) this.error(plugin, plugin.id, 'already registered')
+        if (this._plugins.has(plugin.id)) this._errors.error(plugin.id, 'already registered')
         else this._plugins.set(plugin.id, plugin)
     }
 
@@ -23,17 +25,9 @@ export class Registry {
         return this._host.connect(id, sandbox).then(context => {
             if (isPlugin(context)) {
                 let plugin = context as Plugin
-                if (plugin.id !== id) this.error(plugin, 'sandbox', plugin.id, 'can not be registered as', id)
+                if (plugin.id !== id) this._errors.error('sandbox', plugin.id, 'can not be registered as', id)
                 else this.plugin(plugin)
-            } else this.error({id: id}, 'sandbox', id, 'is not a plugin')
+            } else this._errors.error('sandbox', id, 'is not a plugin')
         })
-    }
-
-    errors() {
-        return [...this._errors]
-    }
-
-    private error(plugin: Plugin, ...message: any[]) {
-        this._errors.push({id: plugin.id, message: message.join(' ')})
     }
 }

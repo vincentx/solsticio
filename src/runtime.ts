@@ -23,11 +23,6 @@ export type Plugin = {
     extensions?: Extension[]
 }
 
-export type PluginError = {
-    id: Identifier,
-    message: string
-}
-
 export function isPlugin(context: any): context is Plugin {
     return context.id
 }
