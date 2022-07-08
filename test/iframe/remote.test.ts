@@ -61,6 +61,11 @@ describe('iFrame communication: Remote', () => {
             expect(context).toEqual({nested: {data: 'data'}})
         })
 
+        it('should restore array from remote context', () => {
+            let context = _remote.fromRemote({array: [1, 2, 3]}, _sandbox.contentWindow!)
+            expect(context).toEqual({array: [1, 2, 3]})
+        })
+
         it('should restore function from remote context', async () => {
             let message = remoteReceived()
             let context = _remote.fromRemote({func: {_solstice_id: 'func'}}, _sandbox.contentWindow!)

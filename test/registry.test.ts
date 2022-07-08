@@ -43,12 +43,13 @@ describe('Plugin Registry', () => {
         let other = window.document.createElement('iframe')
         window.document.body.appendChild(other)
 
-        sandbox({id: '@ui'})
+        sandbox({id: '@ui', extensionPoints: []})
         sandbox({id: '@ui'}, other.contentWindow!)
 
         await _registry.sandbox('@ui', _sandbox.contentWindow!)
         await _registry.sandbox('@ui', other.contentWindow!)
 
+        expect(_registry.plugins()).toEqual([{id: '@ui', extensionPoints: []}])
         expect(_registry.errors()).toEqual([{id: '@ui', message: '@ui already registered'}])
     })
 

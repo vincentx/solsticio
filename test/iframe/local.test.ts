@@ -30,6 +30,11 @@ describe('iFrame communication: Local', () => {
             expect(local.toRemote()).toEqual({data: {nested: 'nested'}})
         })
 
+        it('should export array to remote', () => {
+            let local = new Local({array: [1, 2, 3]})
+            expect(local.toRemote()).toEqual({array: [1, 2, 3]})
+        })
+
         it('should export function as callable', () => {
             let local = new Local({
                 func: () => {

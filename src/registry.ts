@@ -34,5 +34,4 @@ export class Registry {
     private error(plugin: Plugin, ...message: any[]) {
         this._errors.push({id: plugin.id, message: message.join(' ')})
     }
-
 }

@@ -26,14 +26,16 @@ export class Remote {
         })
     }
 
-    fromRemote(context: Context, remote: Window) {
-        let result: any = {}
-        for (let key of Object.keys(context)) {
-            if (context[key]._solstice_id) result[key] = this.createCallable(context[key], remote)
-            else if (typeof context[key] === 'object') result[key] = this.fromRemote(context[key], remote)
-            else result[key] = context[key]
+    fromRemote(context: Context, remote: Window): Context {
+        if (context._solstice_id) return this.createCallable(context, remote)
+        if (Array.isArray(context)) return context.map(v => this.fromRemote(v, remote))
+        if (typeof context === 'object') {
+            let result: any = {}
+            for (let key of Object.keys(context))
+                result[key] = this.fromRemote(context[key], remote)
+            return result
         }
-        return result
+        return context
     }
 
     private createCallable(callable: Callable, remote: Window) {
@@ -66,13 +68,15 @@ export class Local {
     }
 
     private marshal(context: Context): Context {
-        let result: Context = {}
-        for (let key of Object.keys(context)) {
-            if (typeof context[key] === 'object') result[key] = this.marshal(context[key])
-            else if (typeof context[key] === 'function') result[key] = this.marshalCallable(context[key])
-            else result[key] = context[key]
+        if (Array.isArray(context)) return context.map(v => this.marshal(v))
+        if (typeof context === 'function') return this.marshalCallable(context)
+        if (typeof context === 'object') {
+            let result: any = {}
+            for (let key of Object.keys(context))
+                result[key] = this.marshal(context[key])
+            return result
         }
-        return result
+        return context
     }
 
     private marshalCallable(func: Function): Callable {
