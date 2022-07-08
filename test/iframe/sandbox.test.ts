@@ -41,7 +41,7 @@ describe('Sandbox', () => {
             await expect(promise).resolves.toEqual({message: 'already connected'})
         })
     })
-
+    //TODO error message handling
     describe('access remote host context', () => {
         const _remote = {
             fromRemote: vi.fn(),
@@ -117,7 +117,11 @@ describe('Sandbox', () => {
             await waitForSandboxConnection().then(_ => send(callRequest))
 
             await expect(request).resolves.toEqual(callRequest)
-            await expect(waitForSandboxResponse()).resolves.toEqual({id: callRequest.id, type: 'response', response: undefined})
+            await expect(waitForSandboxResponse()).resolves.toEqual({
+                id: callRequest.id,
+                type: 'response',
+                response: undefined
+            })
         })
 
         it('should not handle call request if host not connected', async () => notConnected(callRequest))

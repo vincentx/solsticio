@@ -77,6 +77,7 @@ describe('Host', () => {
         })
 
         //TODO sandbox with same id
+        //TODO error message handling
     })
 
     describe('access remote sandbox context', () => {

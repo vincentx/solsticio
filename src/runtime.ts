@@ -5,12 +5,12 @@ function identifier(plugin: Plugin, component: ExtensionPoint<Extension> | Exten
     return [plugin.id, component.name].join('/')
 }
 
-type ExtensionPoint<E extends Extension> = {
+export type ExtensionPoint<E extends Extension> = {
     readonly name: Name
     validate: (extension: E) => boolean
 }
 
-interface Extension {
+export interface Extension {
     readonly name: Name
     readonly extensionPoint: Identifier
 }
@@ -21,7 +21,7 @@ export type Plugin = {
     extensions?: Extension[]
 }
 
-type PluginError = {
+export type PluginError = {
     id: Identifier,
     message: string
 }
