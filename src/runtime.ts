@@ -15,7 +15,7 @@ interface Extension {
     readonly extensionPoint: Identifier
 }
 
-type Plugin = {
+export type Plugin = {
     readonly id: Identifier
     extensionPoints?: ExtensionPoint<Extension>[]
     extensions?: Extension[]
@@ -36,7 +36,6 @@ export default class Runtime {
         for (let plugin of plugins)
             if (this._plugins.has(plugin.id)) this.error(plugin, plugin.id, 'already installed')
             else this._plugins.set(plugin.id, plugin)
-
 
         for (let plugin of this._plugins.values())
             for (let extensionPoint of plugin.extensionPoints || []) {

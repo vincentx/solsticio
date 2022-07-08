@@ -75,6 +75,8 @@ describe('Host', () => {
             expect(_remote.fromRemote.mock.lastCall![0]).toEqual({context: 'sandbox from remote'})
             expect(_remote.fromRemote.mock.lastCall![1]).toBe(_sandbox.contentWindow!)
         })
+
+        //TODO sandbox with same id
     })
 
     describe('access remote sandbox context', () => {

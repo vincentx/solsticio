@@ -76,8 +76,10 @@ describe('iFrame communication: Local', () => {
                 func: () => 'func called',
             })
 
-            expect(()=> local.receive(request({_solstice_id: 'unknown'}))).toThrowError('unknown callable')
+            expect(() => local.receive(request({_solstice_id: 'unknown'}))).toThrowError('unknown callable')
         })
+
+        //TODO call with parameters
     })
 
     function request(callable: Callable): CallableRequest {

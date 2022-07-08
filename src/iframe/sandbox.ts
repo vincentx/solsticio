@@ -1,10 +1,10 @@
-import {CallableRequest, CallableResponse, Local, Remote, Context} from './communication'
+import {CallableRequest, CallableResponse, Context, Local, Remote} from './communication'
 
 type SandboxRequest = SandboxConnectRequest | CallableRequest | CallableResponse
 type SandboxConnectRequest = { id: string, type: 'context', context: Context }
 type HostRequest = CallableRequest | CallableResponse
 
-type Configuration = {
+export type Configuration = {
     window: Window
     context: Context
     source: (e: MessageEvent) => Window
@@ -25,14 +25,13 @@ export class Host {
             let target = config.source(e)
             try {
                 switch (request.type) {
+                    case 'call':
+                        this.checkConnectedWith(target)
+                        send({id: request.id, type: 'response', response: this._host.receive(request)}, target)
+                        break
                     case 'response':
                         this.checkConnectingWith(target)
                         this._sandbox.receive(request)
-                        break
-                    case 'call':
-                        this.checkConnectedWith(target)
-                        let result = this._host.receive(request)
-                        send({id: request.id, type: 'response', response: result}, target)
                         break
                 }
             } catch (message) {
@@ -41,12 +40,13 @@ export class Host {
         })
     }
 
-    connect(id: string, sandbox: Window) {
+    connect(id: string, sandbox: Window): Promise<Context> {
         this._connecting.push(sandbox)
         return this._sandbox.send(sandbox, (id) => ({id: id, type: 'context', context: this._host.toRemote()}))
             .then(context => {
                 this._sandboxes.set(id, this._sandbox.fromRemote(context, sandbox))
                 this._connected.push(sandbox)
+                return context
             })
     }
 
@@ -83,10 +83,13 @@ export class Sandbox {
                             this.handleContext(request, target, resolve)
                             break
                         case 'call':
-                            this.handleCall(request, target)
+                            this.checkConnectedWith(target)
+                            this._sandbox.receive(request)
+                            send({id: request.id, type: 'response', response: undefined}, target)
                             break
                         case 'response':
-                            this.handleResponse(request, target)
+                            this.checkConnectedWith(target)
+                            this._host!.receive(request)
                             break
                     }
                 } catch (message) {
@@ -106,18 +109,6 @@ export class Sandbox {
         send(response(request, this._sandbox.toRemote()), target)
         resolve(this._host.fromRemote(request.context, target))
     }
-
-    private handleCall(request: CallableRequest, target: Window) {
-        this.checkConnectedWith(target)
-        this._sandbox.receive(request)
-        send({id: request.id, type: 'response', response: undefined}, target)
-    }
-
-    private handleResponse(response: CallableResponse, target: Window) {
-        this.checkConnectedWith(target)
-        this._host!.receive(response)
-    }
-
     private checkConnectedWith(target: Window) {
         if (!this._connected) throw 'not connected'
         if (this._connected != target) throw 'not allowed'
