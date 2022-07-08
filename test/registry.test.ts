@@ -15,12 +15,11 @@ describe('Plugin Registry', () => {
             window: window,
             context: {},
             source: _ => _sandbox.contentWindow!,
-            errors: new ErrorCollector(e => _errors.push(e))
-        })
+            errors: new ErrorCollector(_ => _)
+        }, new ErrorCollector(e => _errors.push(e)))
 
         _sandbox = window.document.createElement('iframe')
         window.document.body.appendChild(_sandbox)
-
         _errors = []
     })
 
@@ -79,7 +78,8 @@ describe('Plugin Registry', () => {
         new Sandbox({
             window: target,
             context: context,
-            source: _ => window
+            source: _ => window,
+            errors: new ErrorCollector(_ => _)
         })
     }
 })

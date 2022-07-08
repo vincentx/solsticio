@@ -2,11 +2,14 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {Host} from '../../src/iframe/sandbox'
 import * as Communication from '../../src/iframe/communication'
 import {CallableRequest, CallableResponse} from '../../src/iframe/communication'
+import {ErrorCollector} from "../../src/error";
 
 //@vitest-environment jsdom
 describe('Host', () => {
     let _host: HTMLIFrameElement
     let _sandbox: HTMLIFrameElement
+    let _errors: (m: string) => void
+    let _errorReceived: Promise<string>
 
     const _remote = {
         fromRemote: vi.fn(),
@@ -30,6 +33,9 @@ describe('Host', () => {
         _sandbox = window.document.createElement('iframe')
         window.document.body.appendChild(_sandbox)
 
+        _errorReceived = new Promise<string>((resolve) => {
+            _errors = m => resolve(m)
+        })
         // @ts-ignore
         vi.spyOn(Communication, 'Remote').mockImplementation(() => _remote)
         // @ts-ignore
@@ -77,7 +83,6 @@ describe('Host', () => {
         })
 
         //TODO sandbox with same id
-        //TODO error message handling
     })
 
     describe('access remote sandbox context', () => {
@@ -126,14 +131,15 @@ describe('Host', () => {
         it('should not handle call request from unconnected sandbox', async () => unknownHost(callRequest))
 
         it('should not handle call request from sandbox during connection', async () => {
-            _remote.send.mockReturnValue(new Promise<any>((_) => {}))
+            _remote.send.mockReturnValue(new Promise<any>((_) => {
+            }))
             let response = waitForSandboxResponse()
 
             let instance = host()
             instance.connect('@sandbox', _sandbox.contentWindow!)
 
             hostReceive(callRequest)
-            await expect(response).resolves.toEqual({id: callRequest.id, error: {message: 'not allowed'}})
+            await expect(response).resolves.toEqual({id: callRequest.id, type:'error', error: {message: 'not allowed'}})
         })
 
         it('should send result back to remote sandbox', async () => {
@@ -149,20 +155,27 @@ describe('Host', () => {
         })
     })
 
+    it('should collect error sent from sandbox', async () => {
+        host()
+        hostReceive({id: 'error-id', type: 'error', error: {message: 'error message'}})
+        await expect(_errorReceived).resolves.toEqual('error message')
+    })
+
     async function unknownHost(message: CallableRequest | CallableResponse) {
         let response = waitForSandboxResponse()
 
         host()
 
         hostReceive(message)
-        await expect(response).resolves.toEqual({id: message.id, error: {message: 'not allowed'}})
+        await expect(response).resolves.toEqual({id: message.id, type:'error', error: {message: 'not allowed'}})
     }
 
     function host(context: any = _hostContext, source: (e: MessageEvent) => Window = _ => _sandbox.contentWindow!) {
         return new Host({
             window: _host.contentWindow!,
             context: context,
-            source: source
+            source: source,
+            errors: new ErrorCollector(_errors)
         })
     }
 

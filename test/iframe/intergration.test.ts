@@ -1,10 +1,12 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {Host, Sandbox} from '../../src/iframe/sandbox'
+import {ErrorCollector} from "../../src/error";
 
 // @vitest-environment jsdom
 describe('Host-Sandbox integration', () => {
     let _sandbox: HTMLIFrameElement
     let _host: HTMLIFrameElement
+    let _errors: string[]
 
     beforeEach(() => {
         _host = window.document.createElement('iframe')
@@ -12,8 +14,9 @@ describe('Host-Sandbox integration', () => {
 
         _sandbox = window.document.createElement('iframe')
         window.document.body.appendChild(_sandbox)
-    })
 
+        _errors = []
+    })
 
     describe('Call Sandbox from Host', () => {
         it('should access context info from connected sandbox', async () => {
@@ -32,7 +35,7 @@ describe('Host-Sandbox integration', () => {
             let handler = vi.fn()
             $sandbox({
                 callback: callback,
-                config: { handler: handler}
+                config: {handler: handler}
             })
 
             let host = $host()
@@ -77,7 +80,8 @@ describe('Host-Sandbox integration', () => {
         return new Sandbox({
             window: _sandbox.contentWindow!,
             context: context,
-            source: source
+            source: source,
+            errors: new ErrorCollector(e => _errors.push(e))
         })
     }
 
@@ -85,7 +89,8 @@ describe('Host-Sandbox integration', () => {
         return new Host({
             window: _host.contentWindow!,
             context: context,
-            source: source
+            source: source,
+            errors: new ErrorCollector(e => _errors.push(e))
         })
     }
 })

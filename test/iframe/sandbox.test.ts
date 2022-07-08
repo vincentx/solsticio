@@ -2,12 +2,18 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {Sandbox} from '../../src/iframe/sandbox'
 import * as Communication from '../../src/iframe/communication'
 import {CallableRequest, CallableResponse} from '../../src/iframe/communication'
+import {ErrorCollector} from '../../src/error'
 
 // @vitest-environment jsdom
 describe('Sandbox', () => {
     let _sandbox: HTMLIFrameElement
+    let _errors: (m: string) => void
+    let _errorReceived: Promise<string>
 
     beforeEach(() => {
+        _errorReceived = new Promise<string>((resolve) => {
+            _errors = m => resolve(m)
+        })
         _sandbox = window.document.createElement('iframe')
         window.document.body.appendChild(_sandbox)
     })
@@ -129,12 +135,18 @@ describe('Sandbox', () => {
         it('should not handle call request from unknown host', async () => unknownHost(callRequest))
     })
 
+    it('should collect error sent from sandbox', async () => {
+        sandbox()
+        send({id: 'error-id', type: 'error', error: {message: 'error message'}})
+        await expect(_errorReceived).resolves.toEqual('error message')
+    })
+
     async function notConnected(message: { id: string }) {
         sandbox()
         let response = waitForSandboxResponse()
         _sandbox.contentWindow!.postMessage(message, '*')
 
-        await expect(response).resolves.toEqual({id: message.id, error: {message: 'not connected'}})
+        await expect(response).resolves.toEqual({id: message.id, type: 'error', error: {message: 'not connected'}})
     }
 
     async function unknownHost(message: { id: string }) {
@@ -154,14 +166,15 @@ describe('Sandbox', () => {
 
         connectSandbox()
 
-        await expect(response).resolves.toEqual({id: message.id, error: {message: 'not allowed'}})
+        await expect(response).resolves.toEqual({id: message.id, type: 'error', error: {message: 'not allowed'}})
     }
 
     function sandbox(context: any = {}, source: (e: MessageEvent) => Window = _ => window) {
         return new Sandbox({
             window: _sandbox.contentWindow!,
             context: context,
-            source: source
+            source: source,
+            errors: new ErrorCollector(_errors)
         })
     }
 

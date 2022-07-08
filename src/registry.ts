@@ -7,9 +7,9 @@ export class Registry {
     private readonly _host: Host
     private readonly _errors: ErrorCollector
 
-    constructor(config: Configuration) {
+    constructor(config: Configuration, error: ErrorCollector) {
         this._host = new Host(config)
-        this._errors = config.errors!
+        this._errors = error
     }
 
     plugin(plugin: Plugin) {

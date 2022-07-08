@@ -1,15 +1,16 @@
 import {CallableRequest, CallableResponse, Context, Local, Remote} from './communication'
-import {ErrorCollector} from "../error";
+import {ErrorCollector} from '../error'
 
-type SandboxRequest = SandboxConnectRequest | CallableRequest | CallableResponse
+type Error = { id: string, type: 'error', error: { message: string } }
+type SandboxRequest = SandboxConnectRequest | CallableRequest | CallableResponse | Error
 type SandboxConnectRequest = { id: string, type: 'context', context: Context }
-type HostRequest = CallableRequest | CallableResponse
+type HostRequest = CallableRequest | CallableResponse | Error
 
 export type Configuration = {
     window: Window
     context: Context
     source: (e: MessageEvent) => Window
-    errors?: ErrorCollector
+    errors: ErrorCollector
 }
 
 export class Host {
@@ -34,6 +35,9 @@ export class Host {
                     case 'response':
                         this.checkConnectingWith(target)
                         this._sandbox.receive(request)
+                        break
+                    case 'error':
+                        config.errors.error(request.error.message)
                         break
                 }
             } catch (message) {
@@ -93,6 +97,9 @@ export class Sandbox {
                             this.checkConnectedWith(target)
                             this._host!.receive(request)
                             break
+                        case 'error':
+                            config.errors.error(request.error.message)
+                            break
                     }
                 } catch (message) {
                     send(error(request, message), target)
@@ -111,6 +118,7 @@ export class Sandbox {
         send(response(request, this._sandbox.toRemote()), target)
         resolve(this._host.fromRemote(request.context, target))
     }
+
     private checkConnectedWith(target: Window) {
         if (!this._connected) throw 'not connected'
         if (this._connected != target) throw 'not allowed'
@@ -122,7 +130,7 @@ function send(message: any, target: Window) {
 }
 
 function error(request: SandboxRequest, message: any) {
-    return {id: request.id, error: {message: message}}
+    return {id: request.id, type: 'error', error: {message: message}}
 }
 
 function response(request: SandboxRequest, response: any): CallableResponse {
