@@ -1,6 +1,7 @@
 {
   "name": "@solstice/runtime",
   "version": "0.1.0",
+  "description": "A plugin runtime for front end development",
   "scripts": {
     "dev": "vite",
     "test": "vitest",
@@ -18,5 +19,20 @@
   },
   "dependencies": {
     "uuid": "^8.3.2"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/solstice-runtime.umd.js",
+  "module": "./dist/solstice-runtime.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/solstice-runtime.es.js",
+      "require": "./dist/solstice-runtime.es.js"
+    }
+  },
+  "author": {
+    "name": "Vincent Hao Xu",
+    "email": "vincent.hao.xu@gmail.com"
   }
 }
