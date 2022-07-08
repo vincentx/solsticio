@@ -36,11 +36,18 @@ describe('Plugin Registry', () => {
     })
 
     it('should register sandbox plugin to registry', async () => {
-        sandbox({id: '@ui'})
+        sandbox({id: '@ui', extensions: [{name: 'extension', extensionPoint: '@core/buttons', action: () => 'click'}]})
 
         await _registry.sandbox('@ui', _sandbox.contentWindow!)
-        expect(_registry.plugins()).toEqual([{id: '@ui'}])
+        let plugin = _registry.plugins()[0]
+
+        expect(plugin.id).toEqual('@ui')
+        expect(plugin.extensions![0].name).toEqual('extension')
+        expect(plugin.extensions![0].extensionPoint).toEqual('@core/buttons')
+        // @ts-ignore
+        expect(typeof plugin.extensions![0].action).toEqual('function')
     })
+
 
     it('should not register sandbox plugin if already registered', async () => {
         let other = window.document.createElement('iframe')

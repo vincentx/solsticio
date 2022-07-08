@@ -50,9 +50,10 @@ export class Host {
         this._connecting.push(sandbox)
         return this._sandbox.send(sandbox, (id) => ({id: id, type: 'context', context: this._host.toRemote()}))
             .then(context => {
-                this._sandboxes.set(id, this._sandbox.fromRemote(context, sandbox))
+                let remote = this._sandbox.fromRemote(context, sandbox)
+                this._sandboxes.set(id, remote)
                 this._connected.push(sandbox)
-                return context
+                return remote
             })
     }
 

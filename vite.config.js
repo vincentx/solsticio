@@ -9,7 +9,6 @@ export default defineConfig({
             fileName: (format) => `solstice-runtime.${format}.js`
         },
         rollupOptions: {
-
         }
     }
 })
