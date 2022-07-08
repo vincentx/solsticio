@@ -1,3 +1,5 @@
+import {ErrorCollector} from "./error";
+
 type Name = string
 type Identifier = string
 
@@ -30,13 +32,16 @@ export function isPlugin(context: any): context is Plugin {
     return context.id
 }
 
-export default class Runtime {
-    private _plugins: Map<Identifier, Plugin> = new Map()
-    private _extensionPoints: Map<Identifier, ExtensionPoint<any>> = new Map()
-    private _extensions: Map<Identifier, Extension[]> = new Map()
-    private _errors: PluginError[] = []
+export class Runtime {
+    private readonly _errors: ErrorCollector
 
-    constructor(...plugins: Plugin[]) {
+    private readonly _plugins: Map<Identifier, Plugin> = new Map()
+    private readonly _extensionPoints: Map<Identifier, ExtensionPoint<any>> = new Map()
+    private readonly _extensions: Map<Identifier, Extension[]> = new Map()
+
+
+    constructor(errors: ErrorCollector, ...plugins: Plugin[]) {
+        this._errors = errors
         for (let plugin of plugins)
             if (this._plugins.has(plugin.id)) this.error(plugin, plugin.id, 'already installed')
             else this._plugins.set(plugin.id, plugin)
@@ -70,12 +75,8 @@ export default class Runtime {
         })]
     }
 
-    errors(): PluginError[] {
-        return [...this._errors]
-    }
-
     private error(plugin: Plugin, ...message: any[]) {
-        this._errors.push({id: plugin.id, message: message.join(' ')})
+        this._errors.error('plugin', plugin.id, ':', ...message)
     }
 
     private registerExtensionPoint(id: Identifier, extensionPoint: ExtensionPoint<Extension>) {
