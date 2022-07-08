@@ -11,7 +11,9 @@ type Configuration = {
 }
 
 export class Host {
-    private readonly _sandboxes: Map<string, any> = new Map()
+    private readonly _sandboxes: Map<string, Context> = new Map()
+    private readonly _connected: Window[] = []
+    private readonly _connecting: Window[] = []
     private readonly _host: Local
     private readonly _sandbox: Remote = new Remote()
 
@@ -20,29 +22,44 @@ export class Host {
 
         config.window.addEventListener('message', (e) => {
             let request = e.data as HostRequest
-            switch (request.type) {
-                case 'response':
-                    this._sandbox.receive(request)
-                    break
-                case 'call':
-                    let result = this._host.receive(request)
-                    config.source(e).postMessage({id: request.id, type: 'response', response: result}, '*')
-                    break
+            let target = config.source(e)
+            try {
+                switch (request.type) {
+                    case 'response':
+                        this.checkConnectingWith(target)
+                        this._sandbox.receive(request)
+                        break
+                    case 'call':
+                        this.checkConnectedWith(target)
+                        let result = this._host.receive(request)
+                        send({id: request.id, type: 'response', response: result}, target)
+                        break
+                }
+            } catch (message) {
+                send(error(request, message), target)
             }
-
         })
     }
 
     connect(id: string, sandbox: Window) {
-        return this._sandbox.send(sandbox, (id) => {
-            return {
-                id: id, type: 'context', context: this._host.toRemote()
-            }
-        }).then(context => this._sandboxes.set(id, this._sandbox.fromRemote(context, sandbox)))
+        this._connecting.push(sandbox)
+        return this._sandbox.send(sandbox, (id) => ({id: id, type: 'context', context: this._host.toRemote()}))
+            .then(context => {
+                this._sandboxes.set(id, this._sandbox.fromRemote(context, sandbox))
+                this._connected.push(sandbox)
+            })
     }
 
     sandbox(id: string): any {
         return this._sandboxes.get(id)! || {}
+    }
+
+    private checkConnectedWith(target: Window) {
+        if (!this._connected.includes(target)) throw 'not allowed'
+    }
+
+    private checkConnectingWith(target: Window) {
+        if (!this._connecting.includes(target)) throw 'not allowed'
     }
 }
 
@@ -73,7 +90,7 @@ export class Sandbox {
                             break
                     }
                 } catch (message) {
-                    this.send(error(request, message), target)
+                    send(error(request, message), target)
                 }
             })
         })
@@ -86,7 +103,7 @@ export class Sandbox {
     private handleContext(request: SandboxConnectRequest, target: Window, resolve: (value: Context) => void) {
         if (this._connected != null) throw 'already connected'
         this._connected = target
-        this.send(response(request, this._sandbox.toRemote()))
+        send(response(request, this._sandbox.toRemote()), target)
         resolve(this._host.fromRemote(request.context, target))
     }
 
@@ -104,10 +121,10 @@ export class Sandbox {
         if (!this._connected) throw 'not connected'
         if (this._connected != target) throw 'not allowed'
     }
+}
 
-    private send(message: any, target: Window | null = null) {
-        (target! || this._connected).postMessage(message, '*')
-    }
+function send(message: any, target: Window) {
+    target.postMessage(message, '*')
 }
 
 function error(request: SandboxRequest, message: any) {

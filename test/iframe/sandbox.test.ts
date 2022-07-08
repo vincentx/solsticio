@@ -45,7 +45,7 @@ describe('Sandbox', () => {
     describe('access remote host context', () => {
         const _remote = {
             fromRemote: vi.fn(),
-            receive: vi.fn(),
+            receive: vi.fn()
         }
 
         const _hostContext = {context: 'host'}
@@ -167,11 +167,11 @@ describe('Sandbox', () => {
         _sandbox.contentWindow!.postMessage(message, '*')
     }
 
-    function waitForSandboxResponse(target: Window = window) {
-        return new Promise<any>((resolve) => {
-            target.addEventListener('message', (e) => resolve(e.data), {once: true})
-        })
-    }
+        function waitForSandboxResponse(target: Window = window) {
+            return new Promise<any>((resolve) => {
+                target.addEventListener('message', (e) => resolve(e.data), {once: true})
+            })
+        }
 
     const waitForSandboxConnection = waitForSandboxResponse
 

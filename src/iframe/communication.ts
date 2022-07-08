@@ -67,10 +67,11 @@ export class Local {
 
     private marshal(context: Context): Context {
         let result: Context = {}
-        for (let key of Object.keys(context))
+        for (let key of Object.keys(context)) {
             if (typeof context[key] === 'object') result[key] = this.marshal(context[key])
             else if (typeof context[key] === 'function') result[key] = this.marshalCallable(context[key])
             else result[key] = context[key]
+        }
         return result
     }
 

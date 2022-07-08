@@ -1,10 +1,27 @@
-import {beforeEach, describe, expect, it} from 'vitest'
-import {Host, Sandbox} from '../../src/iframe/sandbox'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {Host} from '../../src/iframe/sandbox'
+import * as Communication from '../../src/iframe/communication'
+import {CallableRequest, CallableResponse} from '../../src/iframe/communication'
 
-// @vitest-environment jsdom
+//@vitest-environment jsdom
 describe('Host', () => {
-    let _sandbox: HTMLIFrameElement
     let _host: HTMLIFrameElement
+    let _sandbox: HTMLIFrameElement
+
+    const _remote = {
+        fromRemote: vi.fn(),
+        receive: vi.fn(),
+        send: vi.fn()
+    }
+
+    const _local = {
+        toRemote: vi.fn(),
+        receive: vi.fn(),
+    }
+
+    const _hostContext = {
+        context: 'host'
+    }
 
     beforeEach(() => {
         _host = window.document.createElement('iframe')
@@ -12,108 +29,159 @@ describe('Host', () => {
 
         _sandbox = window.document.createElement('iframe')
         window.document.body.appendChild(_sandbox)
+
+        // @ts-ignore
+        vi.spyOn(Communication, 'Remote').mockImplementation(() => _remote)
+        // @ts-ignore
+        vi.spyOn(Communication, 'Local').mockImplementation(() => _local)
     })
 
-    it('should return empty as context for undefined sandbox', () => {
-        let host = $host()
-        expect(host.sandbox('@undefined')).toEqual({})
+    afterEach(() => {
+        vi.resetAllMocks()
     })
 
-    it('should connect to sandbox', async () => {
-        let host = $host()
+    describe('connect sandbox', () => {
+        it('should return empty context for undefined sandbox', () => {
+            let instance = host()
+            expect(instance.sandbox('@undefined')).toEqual({})
+        })
 
-        $sandbox({data: 'data'})
+        it('should send connect request to remote sandbox', () => {
+            _remote.send.mockReturnValue(new Promise<any>((_) => {
+            }))
+            _local.toRemote.mockReturnValue('remote context')
 
-        await host.connect('@sandbox', _sandbox.contentWindow!)
+            let instance = host()
+            instance.connect('@sandbox', _sandbox.contentWindow!)
 
-        expect(host.sandbox('@sandbox')).toEqual({data: 'data'})
-    })
-
-    it('should call callback from sandbox context', async () => {
-        let callback = new Promise<any>((resolve) => {
-            $sandbox({
-                func: () => resolve('func called')
+            expect(_remote.send.mock.lastCall![0]).toBe(_sandbox.contentWindow!)
+            expect(_remote.send.mock.lastCall![1]('message-id')).toEqual({
+                id: 'message-id',
+                type: 'context',
+                context: 'remote context'
             })
         })
 
-        let host = $host()
-        await host.connect('@sandbox', _sandbox.contentWindow!)
+        it('should register remote context to connected sandbox', async () => {
+            let sandboxContext = {context: 'sandbox'}
+            _remote.send.mockResolvedValue({context: 'sandbox from remote'})
+            _remote.fromRemote.mockReturnValue(sandboxContext)
 
-        host.sandbox('@sandbox').func()
+            let instance = host()
+            await instance.connect('@sandbox', _sandbox.contentWindow!)
 
-        await expect(callback).resolves.toEqual('func called')
+            expect(instance.sandbox('@sandbox')).toEqual(sandboxContext)
+
+            expect(_remote.fromRemote.mock.lastCall![0]).toEqual({context: 'sandbox from remote'})
+            expect(_remote.fromRemote.mock.lastCall![1]).toBe(_sandbox.contentWindow!)
+        })
     })
 
-    it('should call callback from nested object in context', async () => {
-        let callback = new Promise<any>((resolve) => {
-            $sandbox({
-                data: {
-                    func: () => resolve('func called')
-                }
+    describe('access remote sandbox context', () => {
+        beforeEach(() => {
+            _remote.send.mockResolvedValue({context: 'sandbox from remote'})
+            _remote.fromRemote.mockReturnValue({context: 'sandbox'})
+        })
+
+        it('should handle remote response from connected sandbox', async () => {
+            let response = new Promise((resolve) => {
+                _remote.receive.mockImplementation((response: CallableResponse) => {
+                    resolve(response)
+                })
             })
+            let instance = host()
+            await instance.connect('@sandbox', _sandbox.contentWindow!)
+
+            hostReceive(sandboxResponse)
+
+            await expect(response).resolves.toEqual(sandboxResponse)
         })
 
-        let host = $host()
-        await host.connect('@sandbox', _sandbox.contentWindow!)
-
-        host.sandbox('@sandbox').data.func()
-
-        await expect(callback).resolves.toEqual('func called')
+        it('should not handle remote response from unconnected sandbox', async () => unknownHost(sandboxResponse))
     })
 
-    it('should send context to sandbox when connect', async () => {
-        let host = $host({data: 'context'})
-
-        let sandbox = $sandbox({data: 'data'})
-
-        await host.connect('@sandbox', _sandbox.contentWindow!)
-
-        await expect(sandbox.host()).resolves.toEqual({data: 'context'})
-    })
-
-    it('should be able to call function from host', async () => {
-        let host = $host({
-            func: () => 'from host'
+    describe('expose context to remote sandbox', () => {
+        beforeEach(() => {
+            _remote.send.mockResolvedValue({context: 'sandbox from remote'})
+            _remote.fromRemote.mockReturnValue({context: 'sandbox'})
         })
 
-        let sandbox = $sandbox({data: 'data'})
+        it('should handle call request from connected sandbox', async () => {
+            let request = new Promise((resolve) => {
+                _local.receive.mockImplementation((request: CallableRequest) => {
+                    resolve(request)
+                })
+            })
 
-        await host.connect('@sandbox', _sandbox.contentWindow!)
+            let instance = host()
+            await instance.connect('@sandbox', _sandbox.contentWindow!)
 
-        let hostContext = await sandbox.host()
-
-        await expect(hostContext.func()).resolves.toEqual('from host')
-    })
-
-    it('should be able to call function nested in host context', async () => {
-        let host = $host({
-            data: {
-                func: () => 'from host'
-            }
+            hostReceive(callRequest)
+            await expect(request).resolves.toEqual(callRequest)
         })
 
-        let instance = $sandbox({data: 'data'})
+        it('should not handle call request from unconnected sandbox', async () => unknownHost(callRequest))
 
-        await host.connect('@sandbox', _sandbox.contentWindow!)
+        it('should not handle call request from sandbox during connection', async () => {
+            _remote.send.mockReturnValue(new Promise<any>((_) => {}))
+            let response = waitForSandboxResponse()
 
-        let hostContext = await instance.host()
+            let instance = host()
+            instance.connect('@sandbox', _sandbox.contentWindow!)
 
-        await expect(hostContext.data.func()).resolves.toEqual('from host')
+            hostReceive(callRequest)
+            await expect(response).resolves.toEqual({id: callRequest.id, error: {message: 'not allowed'}})
+        })
+
+        it('should send result back to remote sandbox', async () => {
+            let response = waitForSandboxResponse()
+            _local.receive.mockReturnValue('result')
+
+            let instance = host()
+            await instance.connect('@sandbox', _sandbox.contentWindow!)
+
+            hostReceive(callRequest)
+
+            await expect(response).resolves.toEqual({id: callRequest.id, type: 'response', response: 'result'})
+        })
     })
 
-    function $sandbox(context: any, source: (e: MessageEvent) => Window = _ => _host.contentWindow!) {
-        return new Sandbox({
-            window: _sandbox.contentWindow!,
-            context: context,
-            source: source
-        })
+    async function unknownHost(message: CallableRequest | CallableResponse) {
+        let response = waitForSandboxResponse()
+
+        host()
+
+        hostReceive(message)
+        await expect(response).resolves.toEqual({id: message.id, error: {message: 'not allowed'}})
     }
 
-    function $host(context: any = {}, source: (e: MessageEvent) => Window = _ => _sandbox.contentWindow!) {
+    function host(context: any = _hostContext, source: (e: MessageEvent) => Window = _ => _sandbox.contentWindow!) {
         return new Host({
             window: _host.contentWindow!,
             context: context,
             source: source
         })
+    }
+
+    function hostReceive(message: any) {
+        _host.contentWindow!.postMessage(message, '*')
+    }
+
+    function waitForSandboxResponse(target: Window = _sandbox.contentWindow!) {
+        return new Promise<any>((resolve) => {
+            target.addEventListener('message', (e) => resolve(e.data), {once: true})
+        })
+    }
+
+    const callRequest: CallableRequest = {
+        id: 'message-id',
+        type: 'call',
+        callable: 'callable'
+    }
+
+    const sandboxResponse: CallableResponse = {
+        id: 'message-id',
+        type: 'response',
+        response: 'any'
     }
 })
