@@ -107,15 +107,17 @@ describe('Sandbox', () => {
             let request = new Promise((resolve) => {
                 _local.receive.mockImplementation((request: CallableRequest) => {
                     resolve(request)
+                    return 'whatever'
                 })
             })
 
             sandbox()
 
-            waitForSandboxConnection().then(_ => send(callRequest))
             connectSandbox()
+            await waitForSandboxConnection().then(_ => send(callRequest))
 
             await expect(request).resolves.toEqual(callRequest)
+            await expect(waitForSandboxResponse()).resolves.toEqual({id: callRequest.id, type: 'response', response: undefined})
         })
 
         it('should not handle call request if host not connected', async () => notConnected(callRequest))
@@ -167,11 +169,11 @@ describe('Sandbox', () => {
         _sandbox.contentWindow!.postMessage(message, '*')
     }
 
-        function waitForSandboxResponse(target: Window = window) {
-            return new Promise<any>((resolve) => {
-                target.addEventListener('message', (e) => resolve(e.data), {once: true})
-            })
-        }
+    function waitForSandboxResponse(target: Window = window) {
+        return new Promise<any>((resolve) => {
+            target.addEventListener('message', (e) => resolve(e.data), {once: true})
+        })
+    }
 
     const waitForSandboxConnection = waitForSandboxResponse
 

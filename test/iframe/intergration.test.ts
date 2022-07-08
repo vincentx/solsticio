@@ -1,4 +1,4 @@
-import {beforeEach, describe, expect, it} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {Host, Sandbox} from '../../src/iframe/sandbox'
 
 // @vitest-environment jsdom
@@ -28,22 +28,22 @@ describe('Host-Sandbox integration', () => {
         })
 
         it('should call sandbox callback for connected sandbox', async () => {
-            let promise = new Promise((resolve) => {
-                $sandbox({
-                    callback: () => {
-                        resolve('callback')
-                    }
-                })
+            let callback = vi.fn()
+            let handler = vi.fn()
+            $sandbox({
+                callback: callback,
+                config: { handler: handler}
             })
 
             let host = $host()
-
             await host.connect('@sandbox', _sandbox.contentWindow!)
             let sandbox = host.sandbox('@sandbox')
 
-            sandbox.callback()
+            await sandbox.callback()
+            await sandbox.config.handler()
 
-            await expect(promise).resolves.toEqual('callback')
+            expect(callback).toHaveBeenCalled()
+            expect(handler).toHaveBeenCalled()
         })
     })
 

@@ -110,6 +110,7 @@ export class Sandbox {
     private handleCall(request: CallableRequest, target: Window) {
         this.checkConnectedWith(target)
         this._sandbox.receive(request)
+        send({id: request.id, type: 'response', response: undefined}, target)
     }
 
     private handleResponse(response: CallableResponse, target: Window) {
