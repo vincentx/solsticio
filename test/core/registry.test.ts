@@ -1,8 +1,8 @@
 import {beforeEach, describe, expect, it} from 'vitest'
-import {Registry} from '../src/registry'
-import {Sandbox} from '../src/iframe/sandbox'
-import {Context} from '../src/iframe/communication'
-import {ErrorCollector} from "../src/error";
+import {Registry} from '../../src/core/registry'
+import {Sandbox} from '../../src/iframe/sandbox'
+import {Context} from '../../src/iframe/communication'
+import {ErrorCollector} from "../../src/core/error";
 
 //@vitest-environment jsdom
 describe('Plugin Registry', () => {
@@ -12,7 +12,7 @@ describe('Plugin Registry', () => {
 
     beforeEach(() => {
         _registry = new Registry({
-            window: window,
+            container: window,
             context: {},
             source: _ => _sandbox.contentWindow!,
             errors: new ErrorCollector(_ => _)
@@ -76,7 +76,7 @@ describe('Plugin Registry', () => {
 
     function sandbox(context: Context, target: Window = _sandbox.contentWindow!) {
         new Sandbox({
-            window: target,
+            container: target,
             context: context,
             source: _ => window,
             errors: new ErrorCollector(_ => _)

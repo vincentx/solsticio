@@ -2,7 +2,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {Sandbox} from '../../src/iframe/sandbox'
 import * as Communication from '../../src/iframe/communication'
 import {CallableRequest, CallableResponse} from '../../src/iframe/communication'
-import {ErrorCollector} from '../../src/error'
+import {ErrorCollector} from '../../src/core/error'
 
 // @vitest-environment jsdom
 describe('Sandbox', () => {
@@ -171,7 +171,7 @@ describe('Sandbox', () => {
 
     function sandbox(context: any = {}, source: (e: MessageEvent) => Window = _ => window) {
         return new Sandbox({
-            window: _sandbox.contentWindow!,
+            container: _sandbox.contentWindow!,
             context: context,
             source: source,
             errors: new ErrorCollector(_errors)

@@ -1,6 +1,6 @@
 import {beforeEach, describe, expect, it} from 'vitest'
-import {Runtime, Plugin} from '../src/runtime'
-import {ErrorCollector} from "../src/error";
+import {Runtime, Plugin} from '../../src/core/runtime'
+import {ErrorCollector} from "../../src/core/error";
 
 describe('Solstice runtime', () => {
     let _errors: string[]

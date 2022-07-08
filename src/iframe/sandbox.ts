@@ -1,5 +1,5 @@
 import {CallableRequest, CallableResponse, Context, Local, Remote} from './communication'
-import {ErrorCollector} from '../error'
+import {ErrorCollector} from '../core/error'
 
 type Error = { id: string, type: 'error', error: { message: string } }
 type SandboxRequest = SandboxConnectRequest | CallableRequest | CallableResponse | Error
@@ -7,7 +7,7 @@ type SandboxConnectRequest = { id: string, type: 'context', context: Context }
 type HostRequest = CallableRequest | CallableResponse | Error
 
 export type Configuration = {
-    window: Window
+    container: Window
     context: Context
     source: (e: MessageEvent) => Window
     errors: ErrorCollector
@@ -23,7 +23,7 @@ export class Host {
     constructor(config: Configuration) {
         this._host = new Local(config.context)
 
-        config.window.addEventListener('message', (e) => {
+        config.container.addEventListener('message', (e) => {
             let request = e.data as HostRequest
             let target = config.source(e)
             try {
@@ -80,7 +80,7 @@ export class Sandbox {
         this._sandbox = new Local(config.context)
 
         this._hostPromise = new Promise<Context>((resolve) => {
-            config.window.addEventListener('message', (e) => {
+            config.container.addEventListener('message', (e) => {
                 let request = e.data as SandboxRequest
                 let target = config.source(e)
                 try {

@@ -1,6 +1,6 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {Host, Sandbox} from '../../src/iframe/sandbox'
-import {ErrorCollector} from "../../src/error";
+import {ErrorCollector} from "../../src/core/error";
 
 // @vitest-environment jsdom
 describe('Host-Sandbox integration', () => {
@@ -78,7 +78,7 @@ describe('Host-Sandbox integration', () => {
 
     function $sandbox(context: any, source: (e: MessageEvent) => Window = _ => _host.contentWindow!) {
         return new Sandbox({
-            window: _sandbox.contentWindow!,
+            container: _sandbox.contentWindow!,
             context: context,
             source: source,
             errors: new ErrorCollector(e => _errors.push(e))
@@ -87,7 +87,7 @@ describe('Host-Sandbox integration', () => {
 
     function $host(context: any = {}, source: (e: MessageEvent) => Window = _ => _sandbox.contentWindow!) {
         return new Host({
-            window: _host.contentWindow!,
+            container: _host.contentWindow!,
             context: context,
             source: source,
             errors: new ErrorCollector(e => _errors.push(e))

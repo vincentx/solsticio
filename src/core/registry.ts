@@ -1,5 +1,5 @@
 import {isPlugin, Plugin} from './runtime'
-import {Configuration, Host} from './iframe/sandbox'
+import {Configuration, Host} from '../iframe/sandbox'
 import {ErrorCollector} from "./error";
 
 export class Registry {

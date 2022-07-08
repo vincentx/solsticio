@@ -1,5 +1,5 @@
 {
-  "name": "@solstice/core",
+  "name": "@solstice/runtime",
   "version": "0.1.0",
   "scripts": {
     "dev": "vite",
