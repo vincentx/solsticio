@@ -164,13 +164,14 @@ describe('Host', () => {
         it('should send result back to remote sandbox', async () => {
             let response = waitForSandboxResponse()
             _local.receive.mockReturnValue('result')
+            _local.toRemote.mockReturnValue('expose to remote result')
 
             let instance = host()
             await instance.connect('@sandbox', _sandbox.contentWindow!)
 
             hostReceive(callRequest)
 
-            await expect(response).resolves.toEqual({id: callRequest.id, type: 'response', response: 'result'})
+            await expect(response).resolves.toEqual({id: callRequest.id, type: 'response', response: 'expose to remote result'})
         })
     })
 
