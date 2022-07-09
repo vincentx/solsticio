@@ -52,10 +52,19 @@ export class Remote {
 
 export class Local {
     private readonly _callables: Map<UUID, Function> = new Map()
+    private readonly _uuid: () => UUID;
+
+    constructor(gen: () => UUID = uuid ) {
+        this._uuid = gen;
+    }
 
     receive(request: CallableRequest, fromRemote: (parameter: any) => any) {
-        if (!this._callables.has(request.callable)) throw 'unknown callable'
-        return this._callables.get(request.callable)!(...request.parameters.map(fromRemote))
+        return this.call(request.callable, ...request.parameters.map(fromRemote))
+    }
+
+    call(id: UUID, ...parameters: any[]) {
+        if (!this._callables.has(id)) throw 'unknown callable'
+        return this._callables.get(id)!(...parameters)
     }
 
     toRemote(object: any): any {
@@ -71,7 +80,7 @@ export class Local {
     }
 
     private toRemoteCallable(func: Function): Callable {
-        let id = uuid()
+        let id = this._uuid()
         this._callables.set(id, func)
         return {_solstice_id: id}
     }

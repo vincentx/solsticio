@@ -1,24 +1,16 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {Callable, CallableRequest, Local} from '../../src/iframe/communication'
-import {v4} from 'uuid'
+import {Local} from '../../src/iframe/communication'
 
 describe('iFrame communication: Local', () => {
-    let _local = new Local()
-    beforeEach(() => {
-        vi.mock('uuid', () => {
-            return {
-                v4: vi.fn()
-            }
-        })
-    })
+    let _local: Local
 
     describe('export context to remote', () => {
         beforeEach(() => {
-            vi.mocked(v4).mockReturnValueOnce('function-id')
+            _local = new Local(() => 'function-id')
         })
 
         afterEach(() => {
-            vi.restoreAllMocks()
+            vi.unmock('uuid')
         })
 
         it('should export context object to remote', () => {
@@ -50,38 +42,29 @@ describe('iFrame communication: Local', () => {
         })
     })
 
-    describe('receive call from remote', () => {
+    describe('call function by id', () => {
         beforeEach(() => {
-            vi.mocked(v4).mockReturnValueOnce('first')
-            vi.mocked(v4).mockReturnValueOnce('second')
+            _local = new Local()
         })
 
-        it('should call function on context after receive request from remote', () => {
+        it('should call function without parameter', () => {
+            let remote = _local.toRemote({
+                func: () => 'called',
+            })
+
+            expect(_local.call(remote.func._solstice_id)).toEqual('called')
+        })
+
+        it('should call function with parameter', () => {
             let remote = _local.toRemote({
                 func: (parameter: any) => parameter,
-                nested: {
-                    func: (parameter: any) => parameter
-                }
             })
 
-            expect(_local.receive(request(remote.func, 'func called'), _ => _)).toEqual('func called')
-            expect(_local.receive(request(remote.nested.func, 'nested func called'), _ => _)).toEqual('nested func called')
-        })
-
-        it('should call function on context with parameter', () => {
-            let remote = _local.toRemote({
-                func: (parameter: any) => parameter
-            })
-
-            expect(_local.receive(request(remote.func, 'string'), _ => 'remote')).toEqual('remote')
+            expect(_local.call(remote.func._solstice_id, 'parameter')).toEqual('parameter')
         })
 
         it('should throw exception if unknown function required', () => {
-            expect(() => _local.receive(request({_solstice_id: 'unknown'}), _ => _)).toThrowError('unknown callable')
+            expect(() => _local.call('unknown')).toThrowError('unknown callable')
         })
     })
-
-    function request(callable: Callable, ...parameters: any[]): CallableRequest {
-        return {id: 'message-id', type: 'call', callable: callable._solstice_id, parameters: parameters}
-    }
 })
