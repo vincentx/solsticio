@@ -10,7 +10,7 @@ describe('iFrame communication: Remote', () => {
 
     beforeEach(() => {
         _remote = new Remote()
-        _local = new Local({})
+        _local = new Local()
 
         _sandbox = window.document.createElement('iframe')
         window.document.body.appendChild(_sandbox)

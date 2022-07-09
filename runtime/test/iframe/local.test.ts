@@ -3,6 +3,7 @@ import {Callable, CallableRequest, Local} from '../../src/iframe/communication'
 import {v4} from 'uuid'
 
 describe('iFrame communication: Local', () => {
+    let _local = new Local()
     beforeEach(() => {
         vi.mock('uuid', () => {
             return {
@@ -21,38 +22,31 @@ describe('iFrame communication: Local', () => {
         })
 
         it('should export context object to remote', () => {
-            let local = new Local({data: 'data'})
-            expect(local.toRemote()).toEqual({data: 'data'})
+            expect(_local.toRemote({data: 'data'})).toEqual({data: 'data'})
         })
 
         it('should export nested object to remote', () => {
-            let local = new Local({data: {nested: 'nested'}})
-            expect(local.toRemote()).toEqual({data: {nested: 'nested'}})
+            expect(_local.toRemote({data: {nested: 'nested'}})).toEqual({data: {nested: 'nested'}})
         })
 
         it('should export array to remote', () => {
-            let local = new Local({array: [1, 2, 3]})
-            expect(local.toRemote()).toEqual({array: [1, 2, 3]})
+            expect(_local.toRemote({array: [1, 2, 3]})).toEqual({array: [1, 2, 3]})
         })
 
         it('should export function as callable', () => {
-            let local = new Local({
+            expect(_local.toRemote({
                 func: () => {
                 }
-            })
-
-            expect(local.toRemote()).toEqual({func: {_solstice_id: 'function-id'}})
+            })).toEqual({func: {_solstice_id: 'function-id'}})
         })
 
         it('should export function in nested object as callable', () => {
-            let local = new Local({
+            expect(_local.toRemote({
                 nested: {
                     func: () => {
                     }
                 }
-            })
-
-            expect(local.toRemote()).toEqual({nested: {func: {_solstice_id: 'function-id'}}})
+            })).toEqual({nested: {func: {_solstice_id: 'function-id'}}})
         })
     })
 
@@ -63,35 +57,27 @@ describe('iFrame communication: Local', () => {
         })
 
         it('should call function on context after receive request from remote', () => {
-            let local = new Local({
+            let remote = _local.toRemote({
                 func: (parameter: any) => parameter,
                 nested: {
                     func: (parameter: any) => parameter
                 }
             })
 
-            let remote = local.toRemote()
-
-            expect(local.receive(request(remote.func, 'func called'), _ => _)).toEqual('func called')
-            expect(local.receive(request(remote.nested.func, 'nested func called'), _ => _)).toEqual('nested func called')
+            expect(_local.receive(request(remote.func, 'func called'), _ => _)).toEqual('func called')
+            expect(_local.receive(request(remote.nested.func, 'nested func called'), _ => _)).toEqual('nested func called')
         })
 
         it('should call function on context with parameter', () => {
-            let local = new Local({
+            let remote = _local.toRemote({
                 func: (parameter: any) => parameter
             })
 
-            let remote = local.toRemote()
-
-            expect(local.receive(request(remote.func, 'string'), _ => 'remote')).toEqual('remote')
+            expect(_local.receive(request(remote.func, 'string'), _ => 'remote')).toEqual('remote')
         })
 
         it('should throw exception if unknown function required', () => {
-            let local = new Local({
-                func: () => 'func called',
-            })
-
-            expect(() => local.receive(request({_solstice_id: 'unknown'}), _ => _)).toThrowError('unknown callable')
+            expect(() => _local.receive(request({_solstice_id: 'unknown'}), _ => _)).toThrowError('unknown callable')
         })
     })
 

@@ -18,12 +18,14 @@ export class Host {
     private readonly _connected: Window[] = []
     private readonly _connecting: Window[] = []
     private readonly _host: Local
+    private readonly _hostContext: Context
     private readonly _sandbox: Remote = new Remote()
     private readonly _config: Configuration;
 
     constructor(config: Configuration) {
         this._config = config
-        this._host = new Local(config.context)
+        this._host = new Local()
+        this._hostContext = this._host.toRemote(config.context)
 
         config.container.addEventListener('message', (e) => {
             let request = e.data as HostRequest
@@ -32,7 +34,7 @@ export class Host {
                 switch (request.type) {
                     case 'call':
                         this.checkConnectedWith(target)
-                        let result = this._host.toRemote_(this._host.receive(request,
+                        let result = this._host.toRemote(this._host.receive(request,
                             (p) => this._sandbox.fromRemote(p, this._host, target)))
                         send({
                             id: request.id,
@@ -56,7 +58,7 @@ export class Host {
 
     connect(id: string, sandbox: Window): Promise<Context> {
         this._connecting.push(sandbox)
-        return this._sandbox.send(sandbox, (id) => ({id: id, type: 'context', context: this._host.toRemote()}))
+        return this._sandbox.send(sandbox, (id) => ({id: id, type: 'context', context: this._hostContext}))
             .then(context => {
                 if (this._sandboxes.has(id)) {
                     this._connecting.splice(this._connecting.indexOf(sandbox), 1)
@@ -86,12 +88,14 @@ export class Host {
 export class Sandbox {
     private readonly _hostPromise: Promise<Context>
     private readonly _sandbox: Local
+    private readonly _sandboxContext: Context
     private readonly _host: Remote = new Remote()
 
     private _connected: Window | null = null
 
     constructor(config: Configuration) {
-        this._sandbox = new Local(config.context)
+        this._sandbox = new Local()
+        this._sandboxContext = this._sandbox.toRemote(config.context)
 
         this._hostPromise = new Promise<Context>((resolve) => {
             config.container.addEventListener('message', (e) => {
@@ -129,7 +133,7 @@ export class Sandbox {
     private handleContext(request: SandboxConnectRequest, target: Window, resolve: (value: Context) => void) {
         if (this._connected != null) throw 'already connected'
         this._connected = target
-        send(response(request, this._sandbox.toRemote()), target)
+        send(response(request, this._sandboxContext), target)
         resolve(this._host.fromRemote(request.context, this._sandbox, target))
     }
 

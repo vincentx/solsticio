@@ -42,7 +42,7 @@ export class Remote {
     private createCallable(callable: Callable, local: Local, remote: Window) {
         let call = this.send.bind(this)
         return function (): Promise<any> {
-            let parameters = local.toRemote_([...arguments])
+            let parameters = local.toRemote([...arguments])
             return call(remote, (id) => {
                 return {id: id, type: 'call', callable: callable._solstice_id, parameters: parameters}
             })
@@ -52,36 +52,25 @@ export class Remote {
 
 export class Local {
     private readonly _callables: Map<UUID, Function> = new Map()
-    private readonly _context: Context;
-    private readonly _remote: Context;
-
-    constructor(context: Context) {
-        this._context = context;
-        this._remote = this.toRemote_(context)
-    }
-    
-    toRemote(): Context {
-        return this._remote
-    }
 
     receive(request: CallableRequest, fromRemote: (parameter: any) => any) {
         if (!this._callables.has(request.callable)) throw 'unknown callable'
-        return this._callables.get(request.callable)!.apply(this._context, request.parameters.map(fromRemote))
+        return this._callables.get(request.callable)!(...request.parameters.map(fromRemote))
     }
 
-    toRemote_(object: any): any {
-        if (Array.isArray(object)) return object.map(v => this.toRemote_(v))
-        if (typeof object === 'function') return this.marshalCallable(object)
+    toRemote(object: any): any {
+        if (Array.isArray(object)) return object.map(v => this.toRemote(v))
+        if (typeof object === 'function') return this.toRemoteCallable(object)
         if (typeof object === 'object') {
             let result: any = {}
             for (let key of Object.keys(object))
-                result[key] = this.toRemote_(object[key])
+                result[key] = this.toRemote(object[key])
             return result
         }
         return object
     }
 
-    private marshalCallable(func: Function): Callable {
+    private toRemoteCallable(func: Function): Callable {
         let id = uuid()
         this._callables.set(id, func)
         return {_solstice_id: id}
