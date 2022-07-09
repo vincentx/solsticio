@@ -100,6 +100,11 @@ export class Local {
         this._uuid = uuid;
     }
 
+    named(functions: Map<UUID, Function>) {
+        for (let key of functions.keys())
+            if (!this._callables.has(key)) this._callables.set(key, functions.get(key)!)
+    }
+
     call(id: UUID, ...parameters: any[]) {
         if (!this._callables.has(id)) throw 'unknown callable'
         return this.toRemote(this._callables.get(id)!(...parameters))

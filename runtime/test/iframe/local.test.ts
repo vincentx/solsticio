@@ -77,4 +77,26 @@ describe('Communication: Local', () => {
             expect(() => _local.call('unknown')).toThrowError('unknown callable')
         })
     })
+
+    describe('export special named function to remote', () => {
+        beforeEach(() => {
+            _local = new Local(() => 'function-id')
+        })
+
+        it('should export special named functions if name not taken', () => {
+            _local.named(new Map([['$context', () => '$context']]))
+
+            expect(_local.call('$context')).toEqual('$context')
+        })
+
+        it('should not export special named if name already taken', () => {
+            _local.toRemote({
+                func: () => 'taken'
+            })
+
+            _local.named(new Map([['function-id', () => 'function-id']]))
+
+            expect(_local.call('function-id')).toEqual('taken')
+        })
+    })
 })
