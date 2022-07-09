@@ -12,9 +12,6 @@ export class Remote {
     private readonly _receivers: Map<UUID, Receiver> = new Map()
     private readonly _local : Local
 
-    //TODO append prefix to avoid conflict
-
-
     constructor(local: Local) {
         this._local = local;
     }
@@ -33,19 +30,19 @@ export class Remote {
         })
     }
 
-    fromRemote(context: Context, remote: Window): Context {
-        if (context._solstice_id) return this.createCallable(context, remote)
-        if (Array.isArray(context)) return context.map(v => this.fromRemote(v, remote))
+    toLocal(context: Context, remote: Window): Context {
+        if (context._solstice_id) return this.toLocalFunction(context, remote)
+        if (Array.isArray(context)) return context.map(v => this.toLocal(v, remote))
         if (typeof context === 'object') {
             let result: any = {}
             for (let key of Object.keys(context))
-                result[key] = this.fromRemote(context[key], remote)
+                result[key] = this.toLocal(context[key], remote)
             return result
         }
         return context
     }
 
-    private createCallable(callable: Callable, remote: Window) {
+    private toLocalFunction(callable: Callable, remote: Window) {
         let call = this.send.bind(this)
         let local = this._local
         return function (): Promise<any> {
@@ -65,8 +62,8 @@ export class Local {
         this._uuid = gen;
     }
 
-    receive(request: CallableRequest, fromRemote: (parameter: any) => any) {
-        return this.call(request.callable, ...request.parameters.map(fromRemote))
+    receive(request: CallableRequest, toLocal: (parameter: any) => any) {
+        return this.call(request.callable, ...request.parameters.map(toLocal))
     }
 
     call(id: UUID, ...parameters: any[]) {

@@ -12,7 +12,7 @@ describe('Host', () => {
     let _errorReceived: Promise<string>
 
     const _remote = {
-        fromRemote: vi.fn(),
+        toLocal: vi.fn(),
         receive: vi.fn(),
         send: vi.fn()
     }
@@ -74,21 +74,21 @@ describe('Host', () => {
         it('should register remote context to connected sandbox', async () => {
             let sandboxContext = {context: 'sandbox'}
             _remote.send.mockResolvedValue(_remoteReturns)
-            _remote.fromRemote.mockReturnValue(sandboxContext)
+            _remote.toLocal.mockReturnValue(sandboxContext)
 
             let instance = host()
             await instance.connect('@sandbox', _sandbox.contentWindow!)
 
             expect(instance.sandbox('@sandbox')).toEqual(sandboxContext)
 
-            expect(_remote.fromRemote.mock.lastCall![0]).toEqual(_remoteReturns)
-            expect(_remote.fromRemote.mock.lastCall![1]).toBe(_sandbox.contentWindow!)
+            expect(_remote.toLocal.mock.lastCall![0]).toEqual(_remoteReturns)
+            expect(_remote.toLocal.mock.lastCall![1]).toBe(_sandbox.contentWindow!)
         })
 
         it('should not connect to sandbox if already connected with same id', async () => {
             let sandboxContext = {context: 'sandbox'}
             _remote.send.mockResolvedValue(_fromRemoteCalled)
-            _remote.fromRemote.mockReturnValue(sandboxContext)
+            _remote.toLocal.mockReturnValue(sandboxContext)
 
             let instance = host()
             await instance.connect('@sandbox', _sandbox.contentWindow!)
@@ -103,7 +103,7 @@ describe('Host', () => {
     describe('access remote sandbox context', () => {
         beforeEach(() => {
             _remote.send.mockResolvedValue(_remoteReturns)
-            _remote.fromRemote.mockReturnValue(_fromRemoteCalled)
+            _remote.toLocal.mockReturnValue(_fromRemoteCalled)
         })
 
         it('should handle remote response from connected sandbox', async () => {
@@ -126,7 +126,7 @@ describe('Host', () => {
     describe('expose context to remote sandbox', () => {
         beforeEach(() => {
             _remote.send.mockResolvedValue(_remoteReturns)
-            _remote.fromRemote.mockReturnValue(_fromRemoteCalled)
+            _remote.toLocal.mockReturnValue(_fromRemoteCalled)
         })
 
         it('should handle call request from connected sandbox', async () => {

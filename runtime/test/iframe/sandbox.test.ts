@@ -50,7 +50,7 @@ describe('Sandbox', () => {
 
     describe('access remote host context', () => {
         const _remote = {
-            fromRemote: vi.fn(),
+            toLocal: vi.fn(),
             receive: vi.fn()
         }
 
@@ -66,7 +66,7 @@ describe('Sandbox', () => {
         })
 
         it('should build remote context after connection', async () => {
-            _remote.fromRemote.mockReturnValue({context: 'remote host'})
+            _remote.toLocal.mockReturnValue({context: 'remote host'})
 
             let host = sandbox().host()
 
@@ -74,12 +74,12 @@ describe('Sandbox', () => {
             await waitForSandboxConnection()
 
             await expect(host).resolves.toEqual({context: 'remote host'})
-            expect(_remote.fromRemote.mock.lastCall![0]).toBe(_hostContext)
+            expect(_remote.toLocal.mock.lastCall![0]).toBe(_hostContext)
         })
 
         it('should handle remote host response', async () => {
             let response = new Promise((resolve) => {
-                _remote.fromRemote.mockReturnValue({context: 'remote host'})
+                _remote.toLocal.mockReturnValue({context: 'remote host'})
                 _remote.receive.mockImplementation((response: CallableResponse) => {
                     resolve(response)
                 })
@@ -112,11 +112,11 @@ describe('Sandbox', () => {
             let _fromRemoteCalled = {context: 'sandbox'}
 
             const _remote = {
-                fromRemote: vi.fn(),
+                toLocal: vi.fn(),
             }
             // @ts-ignore
             vi.spyOn(Communication, 'Remote').mockImplementation(() => _remote)
-            _remote.fromRemote.mockReturnValue(_fromRemoteCalled)
+            _remote.toLocal.mockReturnValue(_fromRemoteCalled)
 
             let request = new Promise((resolve) => {
                 _local.receive.mockImplementation((request: CallableRequest, fromRemote: (p: any) => any) => {
