@@ -74,7 +74,7 @@ describe('Sandbox', () => {
             await waitForSandboxConnection()
 
             await expect(host).resolves.toEqual({context: 'remote host'})
-            expect(_remote.toLocal.mock.lastCall![0]).toBe(_hostContext)
+            expect(_remote.toLocal.mock.lastCall![1]).toBe(_hostContext)
         })
 
         it('should handle remote host response', async () => {

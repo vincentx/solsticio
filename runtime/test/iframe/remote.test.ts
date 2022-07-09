@@ -14,27 +14,27 @@ describe('Communication: Remote', () => {
 
     describe('restore remote object to local', () => {
         it('should convert remote object to local object', () => {
-            let context = _remote.toLocal_(_sender, {data: 'data'})
+            let context = _remote.toLocal(_sender, {data: 'data'})
             expect(context).toEqual({data: 'data'})
         })
 
         it('should convert nested object from remote to local object', () => {
-            let context = _remote.toLocal_(_sender, {nested: {data: 'data'}})
+            let context = _remote.toLocal(_sender, {nested: {data: 'data'}})
             expect(context).toEqual({nested: {data: 'data'}})
         })
 
         it('should convert array from remote to local array', () => {
-            let context = _remote.toLocal_(_sender, {array: [1, 2, 3]})
+            let context = _remote.toLocal(_sender, {array: [1, 2, 3]})
             expect(context).toEqual({array: [1, 2, 3]})
         })
 
         it('should convert undefined to local object', () => {
-            let context = _remote.toLocal_(_sender, undefined)
+            let context = _remote.toLocal(_sender, undefined)
             expect(context).toBeUndefined()
         })
 
         it('should convert function from remote to local function', () => {
-            let context = _remote.toLocal_(_sender, {func: {_solstice_id: 'func'}})
+            let context = _remote.toLocal(_sender, {func: {_solstice_id: 'func'}})
 
             context.func('parameter')
 
@@ -44,7 +44,7 @@ describe('Communication: Remote', () => {
         })
 
         it('should convert function nested in object from remote to local function', async () => {
-            let context = _remote.toLocal_(_sender, {nested: {func: {_solstice_id: 'func'}}})
+            let context = _remote.toLocal(_sender, {nested: {func: {_solstice_id: 'func'}}})
 
             context.nested.func('parameter')
 
@@ -54,7 +54,7 @@ describe('Communication: Remote', () => {
         })
 
         it('should convert local function parameter to remote', () => {
-            let context = _remote.toLocal_(_sender, {func: {_solstice_id: 'func'}})
+            let context = _remote.toLocal(_sender, {func: {_solstice_id: 'func'}})
 
             context.func(() => 'parameter')
 
@@ -69,7 +69,7 @@ describe('Communication: Remote', () => {
         it('should send message to remote by sender', () => {
             let message: any
 
-            _remote.send_(_sender, (id) => {
+            _remote.send(_sender, (id) => {
                 message = {id: id, type: 'call', callable: 'callable', parameters: []}
                 return message
             })
@@ -80,7 +80,7 @@ describe('Communication: Remote', () => {
         it('should return remote response to saved promise', async () => {
             let message: any
 
-            let result = _remote.send_(_sender, (id) => {
+            let result = _remote.send(_sender, (id) => {
                 message = {id: id, type: 'call', callable: 'callable', parameters: []}
                 return message
             })
@@ -93,7 +93,7 @@ describe('Communication: Remote', () => {
         it('should convert remote response to local', async () => {
             let message: any
 
-            let result = _remote.send_(_sender, (id) => {
+            let result = _remote.send(_sender, (id) => {
                 message = {id: id, type: 'call', callable: 'callable', parameters: []}
                 return message
             })
@@ -110,7 +110,7 @@ describe('Communication: Remote', () => {
         it('should not return to sender after response received', () => {
             let message: any
 
-            _remote.send_(_sender, (id) => {
+            _remote.send(_sender, (id) => {
                 message = {id: id, type: 'call', callable: 'callable', parameters: []}
                 return message
             })

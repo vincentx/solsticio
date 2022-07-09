@@ -23,17 +23,11 @@ export class Remote {
 
     receive(sender: Endpoint, response: CallableResponse) {
         if (!this._receivers.has(response.id)) throw 'callable not called'
-        this._receivers.get(response.id)!(this.toLocal_(sender, response.response))
+        this._receivers.get(response.id)!(this.toLocal(sender, response.response))
         this._receivers.delete(response.id)
     }
 
-    send(remote: Window, message: (id: string) => any) {
-        return this.send_({
-            send: (message: { id: string }) => remote.postMessage(message, '*')
-        }, message)
-    }
-
-    send_(sender: Endpoint, message: (id: string) => Message): Promise<any> {
+    send(sender: Endpoint, message: (id: string) => Message): Promise<any> {
         return new Promise<any>((resolve) => {
             let id = uuid()
             this._receivers.set(id, resolve)
@@ -41,20 +35,14 @@ export class Remote {
         })
     }
 
-    toLocal(context: Context, remote: Window): Context {
-        return this.toLocal_({
-            send: (message: { id: string }) => remote.postMessage(message, '*')
-        }, context)
-    }
-
-    toLocal_(sender: Endpoint, object: any): any {
+    toLocal(sender: Endpoint, object: any): any {
         if (object == undefined) return undefined
         if (object._solstice_id) return this.toLocalFunction_(sender, object)
-        if (Array.isArray(object)) return object.map(v => this.toLocal_(sender, v))
+        if (Array.isArray(object)) return object.map(v => this.toLocal(sender, v))
         if (typeof object === 'object') {
             let result: any = {}
             for (let key of Object.keys(object))
-                result[key] = this.toLocal_(sender, object[key])
+                result[key] = this.toLocal(sender, object[key])
             return result
         }
         return object
@@ -62,7 +50,7 @@ export class Remote {
     }
 
     private toLocalFunction_(sender: Endpoint, callable: Callable) {
-        let call = this.send_.bind(this)
+        let call = this.send.bind(this)
         let local = this._local
         return function (): Promise<any> {
             let parameters = local.toRemote([...arguments])

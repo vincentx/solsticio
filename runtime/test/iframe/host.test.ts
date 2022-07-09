@@ -63,7 +63,6 @@ describe('Host', () => {
             let instance = host()
             instance.connect('@sandbox', _sandbox.contentWindow!)
 
-            expect(_remote.send.mock.lastCall![0]).toBe(_sandbox.contentWindow!)
             expect(_remote.send.mock.lastCall![1]('message-id')).toEqual({
                 id: 'message-id',
                 type: 'context',
@@ -81,8 +80,7 @@ describe('Host', () => {
 
             expect(instance.sandbox('@sandbox')).toEqual(sandboxContext)
 
-            expect(_remote.toLocal.mock.lastCall![0]).toEqual(_remoteReturns)
-            expect(_remote.toLocal.mock.lastCall![1]).toBe(_sandbox.contentWindow!)
+            expect(_remote.toLocal.mock.lastCall![1]).toEqual(_remoteReturns)
         })
 
         it('should not connect to sandbox if already connected with same id', async () => {

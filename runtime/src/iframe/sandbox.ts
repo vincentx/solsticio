@@ -37,7 +37,7 @@ export class Host {
                     case 'call':
                         this.checkConnectedWith(target)
                         let result = this._host.toRemote(this._host.receive(request,
-                            (p) => this._sandbox.toLocal(p, target)))
+                            (p) => this._sandbox.toLocal(sender, p)))
                         send({
                             id: request.id,
                             type: 'response',
@@ -59,14 +59,15 @@ export class Host {
     }
 
     connect(id: string, sandbox: Window): Promise<Context> {
+        let sender = toSender(sandbox)
         this._connecting.push(sandbox)
-        return this._sandbox.send(sandbox, (id) => ({id: id, type: 'context', context: this._hostContext}))
+        return this._sandbox.send(sender, (id) => ({id: id, type: 'context', context: this._hostContext}))
             .then(context => {
                 if (this._sandboxes.has(id)) {
                     this._connecting.splice(this._connecting.indexOf(sandbox), 1)
                     this._config.errors.error(id, 'already registered')
                 } else {
-                    let remote = this._sandbox.toLocal(context, sandbox)
+                    let remote = this._sandbox.toLocal(sender, context)
                     this._sandboxes.set(id, remote)
                     this._connected.push(sandbox)
                     return remote
@@ -113,7 +114,7 @@ export class Sandbox {
                             break
                         case 'call':
                             this.checkConnectedWith(target)
-                            this._sandbox.receive(request, (p) => this._host.toLocal(p, target))
+                            this._sandbox.receive(request, (p) => this._host.toLocal(sender, p))
                             send({id: request.id, type: 'response', response: undefined}, target)
                             break
                         case 'response':
@@ -138,8 +139,9 @@ export class Sandbox {
     private handleContext(request: SandboxConnectRequest, target: Window, resolve: (value: Context) => void) {
         if (this._connected != null) throw 'already connected'
         this._connected = target
+        let sender = toSender(target)
         send(response(request, this._sandboxContext), target)
-        resolve(this._host.toLocal(request.context, target))
+        resolve(this._host.toLocal(sender, request.context))
     }
 
     private checkConnectedWith(target: Window) {
