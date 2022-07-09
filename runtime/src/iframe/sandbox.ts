@@ -45,7 +45,7 @@ export class Host {
                         break
                     case 'response':
                         this.checkConnectingWith(target)
-                        this._sandbox.receive(sender, request)
+                        this._sandbox.receive(sender, request.id, request.response)
                         break
                     case 'error':
                         config.errors.collect(request.error.message)
@@ -118,7 +118,7 @@ export class Sandbox {
                             break
                         case 'response':
                             this.checkConnectedWith(target)
-                            this._host!.receive(sender, request)
+                            this._host!.receive(sender, request.id, request.response)
                             break
                         case 'error':
                             config.errors.collect(request.error.message)

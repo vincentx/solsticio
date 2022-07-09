@@ -20,11 +20,10 @@ export class Remote {
     constructor(local: Local) {
         this._local = local;
     }
-
-    receive(sender: Endpoint, response: CallableResponse) {
-        if (!this._receivers.has(response.id)) throw 'callable not called'
-        this._receivers.get(response.id)!(this.toLocal(sender, response.response))
-        this._receivers.delete(response.id)
+    receive(sender: Endpoint, id: UUID, result: any) {
+        if (!this._receivers.has(id)) throw 'callable not called'
+        this._receivers.get(id)!(this.toLocal(sender, result))
+        this._receivers.delete(id)
     }
 
     send(sender: Endpoint, message: (id: string) => Message): Promise<any> {
@@ -36,8 +35,7 @@ export class Remote {
     }
 
     toLocal(sender: Endpoint, object: any): any {
-        if (object == undefined) return undefined
-        if (object._solstice_id) return this.toLocalFunction_(sender, object)
+        if (object && object._solstice_id) return this.toLocalFunction(sender, object)
         if (Array.isArray(object)) return object.map(v => this.toLocal(sender, v))
         if (typeof object === 'object') {
             let result: any = {}
@@ -46,10 +44,9 @@ export class Remote {
             return result
         }
         return object
-
     }
 
-    private toLocalFunction_(sender: Endpoint, callable: Callable) {
+    private toLocalFunction(sender: Endpoint, callable: Callable) {
         let call = this.send.bind(this)
         let local = this._local
         return function (): Promise<any> {
@@ -71,7 +68,7 @@ export class Local {
     constructor(gen: () => UUID = uuid) {
         this._uuid = gen;
     }
-    
+
     call(id: UUID, ...parameters: any[]) {
         if (!this._callables.has(id)) throw 'unknown callable'
         return this.toRemote(this._callables.get(id)!(...parameters))

@@ -80,7 +80,7 @@ describe('Sandbox', () => {
         it('should handle remote host response', async () => {
             let response = new Promise((resolve) => {
                 _remote.toLocal.mockReturnValue({context: 'remote host'})
-                _remote.receive.mockImplementation((sender: Endpoint, response: CallableResponse) => {
+                _remote.receive.mockImplementation((sender: Endpoint, id: string, response: any) => {
                     resolve(response)
                 })
             })
@@ -89,7 +89,7 @@ describe('Sandbox', () => {
             connectSandbox('connect', _hostContext)
             waitForSandboxConnection().then(_ => send(hostResponse))
 
-            await expect(response).resolves.toEqual(hostResponse)
+            await expect(response).resolves.toEqual(hostResponse.response)
         })
 
         it('should not handle response if host not connected', async () => notConnected(hostResponse))

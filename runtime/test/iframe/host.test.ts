@@ -107,8 +107,8 @@ describe('Host', () => {
 
         it('should handle remote response from connected sandbox', async () => {
             let response = new Promise((resolve) => {
-                _remote.receive.mockImplementation((sender: Endpoint, response: CallableResponse) => {
-                    resolve(response)
+                _remote.receive.mockImplementation((sender: Endpoint, id: string, result: any) => {
+                    resolve(result)
                 })
             })
             let instance = host()
@@ -116,7 +116,7 @@ describe('Host', () => {
 
             hostReceive(sandboxResponse)
 
-            await expect(response).resolves.toEqual(sandboxResponse)
+            await expect(response).resolves.toEqual(sandboxResponse.response)
         })
 
         it('should not handle remote response from unconnected sandbox', async () => unknownHost(sandboxResponse))

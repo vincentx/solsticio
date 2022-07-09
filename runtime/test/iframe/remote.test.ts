@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
-import {CallableResponse, Endpoint, Local, Remote} from '../../src/iframe/communication'
+import {Endpoint, Local, Remote} from '../../src/iframe/communication'
 
 describe('Communication: Remote', () => {
     let _remote: Remote
@@ -85,7 +85,7 @@ describe('Communication: Remote', () => {
                 return message
             })
 
-            _remote.receive(_sender, response(message.id, 'response'))
+            _remote.receive(_sender, message.id, 'response')
 
             await expect(result).resolves.toEqual('response')
         })
@@ -98,13 +98,13 @@ describe('Communication: Remote', () => {
                 return message
             })
 
-            _remote.receive(_sender, response(message.id, {_solstice_id: 'func'}))
+            _remote.receive(_sender, message.id, {_solstice_id: 'func'})
 
             await expect(result).resolves.toBeTypeOf('function')
         })
 
         it('should throw exception if message id does not match', () => {
-            expect(() => _remote.receive(_sender, response('unknown'))).toThrowError('callable not called')
+            expect(() => _remote.receive(_sender, 'unknown', {})).toThrowError('callable not called')
         })
 
         it('should not return to sender after response received', () => {
@@ -115,13 +115,9 @@ describe('Communication: Remote', () => {
                 return message
             })
 
-            _remote.receive(_sender, response(message.id, 'response'))
-            expect(() => _remote.receive(_sender, response(message.id, 'response'))).toThrowError('callable not called')
+            _remote.receive(_sender, message.id, 'response')
+            expect(() => _remote.receive(_sender, message.id, 'response')).toThrowError('callable not called')
         })
 
     })
-
-    function response(id: string = 'message-id', response: any = 'received'): CallableResponse {
-        return {id: id, type: 'response', response: response}
-    }
 })
