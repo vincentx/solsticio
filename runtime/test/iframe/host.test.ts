@@ -26,6 +26,9 @@ describe('Host', () => {
         context: 'host'
     }
 
+    let _fromRemoteCalled = {context: 'sandbox'}
+    let _remoteReturns = {context: 'sandbox from remote'}
+
     beforeEach(() => {
         _host = window.document.createElement('iframe')
         window.document.body.appendChild(_host)
@@ -70,7 +73,7 @@ describe('Host', () => {
 
         it('should register remote context to connected sandbox', async () => {
             let sandboxContext = {context: 'sandbox'}
-            _remote.send.mockResolvedValue({context: 'sandbox from remote'})
+            _remote.send.mockResolvedValue(_remoteReturns)
             _remote.fromRemote.mockReturnValue(sandboxContext)
 
             let instance = host()
@@ -78,13 +81,13 @@ describe('Host', () => {
 
             expect(instance.sandbox('@sandbox')).toEqual(sandboxContext)
 
-            expect(_remote.fromRemote.mock.lastCall![0]).toEqual({context: 'sandbox from remote'})
+            expect(_remote.fromRemote.mock.lastCall![0]).toEqual(_remoteReturns)
             expect(_remote.fromRemote.mock.lastCall![1]).toBe(_sandbox.contentWindow!)
         })
 
         it('should not connect to sandbox if already connected with same id', async () => {
             let sandboxContext = {context: 'sandbox'}
-            _remote.send.mockResolvedValue({context: 'sandbox from remote'})
+            _remote.send.mockResolvedValue(_fromRemoteCalled)
             _remote.fromRemote.mockReturnValue(sandboxContext)
 
             let instance = host()
@@ -99,8 +102,8 @@ describe('Host', () => {
 
     describe('access remote sandbox context', () => {
         beforeEach(() => {
-            _remote.send.mockResolvedValue({context: 'sandbox from remote'})
-            _remote.fromRemote.mockReturnValue({context: 'sandbox'})
+            _remote.send.mockResolvedValue(_remoteReturns)
+            _remote.fromRemote.mockReturnValue(_fromRemoteCalled)
         })
 
         it('should handle remote response from connected sandbox', async () => {
@@ -122,14 +125,14 @@ describe('Host', () => {
 
     describe('expose context to remote sandbox', () => {
         beforeEach(() => {
-            _remote.send.mockResolvedValue({context: 'sandbox from remote'})
-            _remote.fromRemote.mockReturnValue({context: 'sandbox'})
+            _remote.send.mockResolvedValue(_remoteReturns)
+            _remote.fromRemote.mockReturnValue(_fromRemoteCalled)
         })
 
         it('should handle call request from connected sandbox', async () => {
             let request = new Promise((resolve) => {
-                _local.receive.mockImplementation((request: CallableRequest) => {
-                    resolve(request)
+                _local.receive.mockImplementation((request: CallableRequest, fromRemote: (p: any) => any) => {
+                    resolve([request, fromRemote('something')])
                 })
             })
 
@@ -137,7 +140,7 @@ describe('Host', () => {
             await instance.connect('@sandbox', _sandbox.contentWindow!)
 
             hostReceive(callRequest)
-            await expect(request).resolves.toEqual(callRequest)
+            await expect(request).resolves.toEqual([callRequest, _fromRemoteCalled])
         })
 
         it('should not handle call request from unconnected sandbox', async () => unknownHost(callRequest))
@@ -151,7 +154,11 @@ describe('Host', () => {
             instance.connect('@sandbox', _sandbox.contentWindow!)
 
             hostReceive(callRequest)
-            await expect(response).resolves.toEqual({id: callRequest.id, type:'error', error: {message: 'not allowed'}})
+            await expect(response).resolves.toEqual({
+                id: callRequest.id,
+                type: 'error',
+                error: {message: 'not allowed'}
+            })
         })
 
         it('should send result back to remote sandbox', async () => {
@@ -179,7 +186,7 @@ describe('Host', () => {
         host()
 
         hostReceive(message)
-        await expect(response).resolves.toEqual({id: message.id, type:'error', error: {message: 'not allowed'}})
+        await expect(response).resolves.toEqual({id: message.id, type: 'error', error: {message: 'not allowed'}})
     }
 
     function host(context: any = _hostContext, source: (e: MessageEvent) => Window = _ => _sandbox.contentWindow!) {
@@ -204,7 +211,8 @@ describe('Host', () => {
     const callRequest: CallableRequest = {
         id: 'message-id',
         type: 'call',
-        callable: 'callable'
+        callable: 'callable',
+        parameters: []
     }
 
     const sandboxResponse: CallableResponse = {

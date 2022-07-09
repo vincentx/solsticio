@@ -32,7 +32,11 @@ export class Host {
                 switch (request.type) {
                     case 'call':
                         this.checkConnectedWith(target)
-                        send({id: request.id, type: 'response', response: this._host.receive(request)}, target)
+                        send({
+                            id: request.id,
+                            type: 'response',
+                            response: this._host.receive(request, (p) => this._sandbox.fromRemote(p, target))
+                        }, target)
                         break
                     case 'response':
                         this.checkConnectingWith(target)
