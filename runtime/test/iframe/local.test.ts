@@ -63,6 +63,16 @@ describe('iFrame communication: Local', () => {
             expect(_local.call(remote.func._solstice_id, 'parameter')).toEqual('parameter')
         })
 
+        it('should export function call result to remote', () => {
+            let local = new Local(() => 'function-id')
+
+            let remote = local.toRemote({
+                func: () => () => 'function',
+            })
+
+            expect(local.call(remote.func._solstice_id)).toEqual({_solstice_id: 'function-id'})
+        })
+
         it('should throw exception if unknown function required', () => {
             expect(() => _local.call('unknown')).toThrowError('unknown callable')
         })

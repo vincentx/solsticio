@@ -64,7 +64,7 @@ export class Local {
 
     call(id: UUID, ...parameters: any[]) {
         if (!this._callables.has(id)) throw 'unknown callable'
-        return this._callables.get(id)!(...parameters)
+        return this.toRemote(this._callables.get(id)!(...parameters))
     }
 
     toRemote(object: any): any {
