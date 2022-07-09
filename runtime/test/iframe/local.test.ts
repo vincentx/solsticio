@@ -1,7 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {Local} from '../../src/iframe/communication'
 
-describe('iFrame communication: Local', () => {
+describe('Communication: Local', () => {
     let _local: Local
 
     describe('export context to remote', () => {

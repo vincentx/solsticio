@@ -1,4 +1,4 @@
-import {CallableRequest, CallableResponse, Context, Local, Remote} from './communication'
+import {CallableRequest, CallableResponse, Context, Endpoint, Local, Remote} from './communication'
 import {ErrorCollector} from '../core/error'
 
 type Error = { id: string, type: 'error', error: { message: string } }
@@ -31,6 +31,7 @@ export class Host {
         config.container.addEventListener('message', (e) => {
             let request = e.data as HostRequest
             let target = config.source(e)
+            let sender = toSender(target)
             try {
                 switch (request.type) {
                     case 'call':
@@ -45,7 +46,7 @@ export class Host {
                         break
                     case 'response':
                         this.checkConnectingWith(target)
-                        this._sandbox.receive(request)
+                        this._sandbox.receive(sender, request)
                         break
                     case 'error':
                         config.errors.collect(request.error.message)
@@ -103,6 +104,8 @@ export class Sandbox {
             config.container.addEventListener('message', (e) => {
                 let request = e.data as SandboxRequest
                 let target = config.source(e)
+                // @ts-ignore
+                let sender = toSender(target)
                 try {
                     switch (request.type) {
                         case 'context':
@@ -115,7 +118,7 @@ export class Sandbox {
                             break
                         case 'response':
                             this.checkConnectedWith(target)
-                            this._host!.receive(request)
+                            this._host!.receive(sender, request)
                             break
                         case 'error':
                             config.errors.collect(request.error.message)
@@ -142,6 +145,14 @@ export class Sandbox {
     private checkConnectedWith(target: Window) {
         if (!this._connected) throw 'not connected'
         if (this._connected != target) throw 'not allowed'
+    }
+}
+
+function toSender(window: Window): Endpoint {
+    return {
+        send(message) {
+            window.postMessage(message, '*')
+        }
     }
 }
 

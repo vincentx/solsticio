@@ -1,7 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {Host} from '../../src/iframe/sandbox'
 import * as Communication from '../../src/iframe/communication'
-import {CallableRequest, CallableResponse, Local} from '../../src/iframe/communication'
+import {CallableRequest, CallableResponse, Endpoint, Local} from '../../src/iframe/communication'
 import {ErrorCollector} from "../../src/core/error";
 
 //@vitest-environment jsdom
@@ -108,7 +108,7 @@ describe('Host', () => {
 
         it('should handle remote response from connected sandbox', async () => {
             let response = new Promise((resolve) => {
-                _remote.receive.mockImplementation((response: CallableResponse) => {
+                _remote.receive.mockImplementation((sender: Endpoint, response: CallableResponse) => {
                     resolve(response)
                 })
             })

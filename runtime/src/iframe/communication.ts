@@ -21,13 +21,7 @@ export class Remote {
         this._local = local;
     }
 
-    receive(response: CallableResponse) {
-        if (!this._receivers.has(response.id)) throw 'callable not called'
-        this._receivers.get(response.id)!(response.response)
-        this._receivers.delete(response.id)
-    }
-
-    receive_(sender: Endpoint, response: CallableResponse) {
+    receive(sender: Endpoint, response: CallableResponse) {
         if (!this._receivers.has(response.id)) throw 'callable not called'
         this._receivers.get(response.id)!(this.toLocal_(sender, response.response))
         this._receivers.delete(response.id)
@@ -54,6 +48,7 @@ export class Remote {
     }
 
     toLocal_(sender: Endpoint, object: any): any {
+        if (object == undefined) return undefined
         if (object._solstice_id) return this.toLocalFunction_(sender, object)
         if (Array.isArray(object)) return object.map(v => this.toLocal_(sender, v))
         if (typeof object === 'object') {
