@@ -6,99 +6,78 @@ describe('Communication: Remote', () => {
     let _sender: Endpoint
 
     beforeEach(() => {
-        _remote = new Remote(new Local())
+        _remote = new Remote(new Local(() => 'function-id'), () => 'message-id')
         _sender = {
-            send: vi.fn()
+            send: vi.fn(),
+            call: vi.fn()
         }
     })
 
     describe('restore remote object to local', () => {
         it('should convert remote object to local object', () => {
-            let context = _remote.toLocal(_sender, {data: 'data'})
+            let context = _remote.toLocal_(_sender, {data: 'data'})
             expect(context).toEqual({data: 'data'})
         })
 
         it('should convert nested object from remote to local object', () => {
-            let context = _remote.toLocal(_sender, {nested: {data: 'data'}})
+            let context = _remote.toLocal_(_sender, {nested: {data: 'data'}})
             expect(context).toEqual({nested: {data: 'data'}})
         })
 
         it('should convert array from remote to local array', () => {
-            let context = _remote.toLocal(_sender, {array: [1, 2, 3]})
+            let context = _remote.toLocal_(_sender, {array: [1, 2, 3]})
             expect(context).toEqual({array: [1, 2, 3]})
         })
 
         it('should convert undefined to local object', () => {
-            let context = _remote.toLocal(_sender, undefined)
+            let context = _remote.toLocal_(_sender, undefined)
             expect(context).toBeUndefined()
         })
 
         it('should convert function from remote to local function', () => {
-            let context = _remote.toLocal(_sender, {func: {_solstice_id: 'func'}})
+            let context = _remote.toLocal_(_sender, {func: {_solstice_id: 'func'}})
 
             context.func('parameter')
 
-            let message: any = vi.mocked(_sender.send).mock.lastCall[0]
-            expect(message.type).toEqual('call')
-            expect(message.parameters).toEqual(['parameter'])
+            expect(_sender.call).toHaveBeenCalledWith('message-id', 'func', ['parameter'])
         })
 
         it('should convert function nested in object from remote to local function', async () => {
-            let context = _remote.toLocal(_sender, {nested: {func: {_solstice_id: 'func'}}})
+            let context = _remote.toLocal_(_sender, {nested: {func: {_solstice_id: 'func'}}})
 
             context.nested.func('parameter')
 
-            let message: any = vi.mocked(_sender.send).mock.lastCall[0]
-            expect(message.type).toEqual('call')
-            expect(message.parameters).toEqual(['parameter'])
+            expect(_sender.call).toHaveBeenCalledWith('message-id', 'func', ['parameter'])
         })
 
         it('should convert local function parameter to remote', () => {
-            let context = _remote.toLocal(_sender, {func: {_solstice_id: 'func'}})
+            let context = _remote.toLocal_(_sender, {func: {_solstice_id: 'func'}})
 
             context.func(() => 'parameter')
 
-            let message: any = vi.mocked(_sender.send).mock.lastCall[0]
-            expect(message.type).toEqual('call')
-            expect(message.parameters.length).toEqual(1)
-            expect(message.parameters[0]._solstice_id).not.toBe(undefined)
+            expect(_sender.call).toHaveBeenCalledWith('message-id', 'func', [{_solstice_id: 'function-id'}])
         })
     })
 
-    describe('communicate with remote', () => {
-        it('should send message to remote by sender', () => {
-            let message: any
+    describe('call remote endpoint', () => {
+        it('should call remote with parameter', () => {
+            _remote.call(_sender, 'func', ['parameter'])
 
-            _remote.send(_sender, (id) => {
-                message = {id: id, type: 'call', callable: 'callable', parameters: []}
-                return message
-            })
-
-            expect(_sender.send).toHaveBeenCalledWith(message)
+            expect(_sender.call).toHaveBeenCalledWith('message-id', 'func', ['parameter'])
         })
 
-        it('should return remote response to saved promise', async () => {
-            let message: any
+        it('should send result to its caller', async () => {
+            let result = _remote.call(_sender, 'func', ['parameter'])
 
-            let result = _remote.send(_sender, (id) => {
-                message = {id: id, type: 'call', callable: 'callable', parameters: []}
-                return message
-            })
-
-            _remote.receive(_sender, message.id, 'response')
+            _remote.receive(_sender, 'message-id', 'response')
 
             await expect(result).resolves.toEqual('response')
         })
 
-        it('should convert remote response to local', async () => {
-            let message: any
+        it('should send local version of the result to its caller', async () => {
+            let result = _remote.call(_sender, 'func', ['parameter'])
 
-            let result = _remote.send(_sender, (id) => {
-                message = {id: id, type: 'call', callable: 'callable', parameters: []}
-                return message
-            })
-
-            _remote.receive(_sender, message.id, {_solstice_id: 'func'})
+            _remote.receive(_sender, 'message-id', {_solstice_id: 'func'})
 
             await expect(result).resolves.toBeTypeOf('function')
         })
@@ -107,17 +86,12 @@ describe('Communication: Remote', () => {
             expect(() => _remote.receive(_sender, 'unknown', {})).toThrowError('callable not called')
         })
 
-        it('should not return to sender after response received', () => {
-            let message: any
+        it('should throw exception if message id already used', () => {
+            _remote.call(_sender, 'func', ['parameter'])
 
-            _remote.send(_sender, (id) => {
-                message = {id: id, type: 'call', callable: 'callable', parameters: []}
-                return message
-            })
+            _remote.receive(_sender, 'message-id', 'response')
 
-            _remote.receive(_sender, message.id, 'response')
-            expect(() => _remote.receive(_sender, message.id, 'response')).toThrowError('callable not called')
+            expect(() => _remote.receive(_sender, 'message-id', 'response')).toThrowError('callable not called')
         })
-
     })
 })

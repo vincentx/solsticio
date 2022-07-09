@@ -1,4 +1,4 @@
-import {v4 as uuid} from 'uuid'
+import {v4} from 'uuid'
 
 export type Context = any
 export type Callable = { _solstice_id: string }
@@ -7,6 +7,7 @@ export type CallableResponse = { id: string, type: 'response', response: any }
 
 export interface Endpoint {
     send: (message: Message) => void
+    call?: (id: UUID, callable: UUID, parameters: any[]) => void
 }
 
 type UUID = string
@@ -16,10 +17,13 @@ type Message = { id: string }
 export class Remote {
     private readonly _receivers: Map<UUID, Receiver> = new Map()
     private readonly _local: Local
+    private readonly _uuid: () => UUID;
 
-    constructor(local: Local) {
+    constructor(local: Local, uuid: () => UUID = v4) {
         this._local = local;
+        this._uuid = uuid;
     }
+
     receive(sender: Endpoint, id: UUID, result: any) {
         if (!this._receivers.has(id)) throw 'callable not called'
         this._receivers.get(id)!(this.toLocal(sender, result))
@@ -28,9 +32,17 @@ export class Remote {
 
     send(sender: Endpoint, message: (id: string) => Message): Promise<any> {
         return new Promise<any>((resolve) => {
-            let id = uuid()
+            let id = this._uuid()
             this._receivers.set(id, resolve)
             sender.send(message(id))
+        })
+    }
+
+    call(remote: Endpoint, callable: UUID, parameters: any[]): Promise<any> {
+        return new Promise<any>((resolve) => {
+            let id = this._uuid()
+            this._receivers.set(id, resolve)
+            remote.call!(id, callable, this._local.toRemote(parameters))
         })
     }
 
@@ -44,6 +56,25 @@ export class Remote {
             return result
         }
         return object
+    }
+
+    toLocal_(sender: Endpoint, object: any): any {
+        if (object && object._solstice_id) return this.toLocalFunction_(sender, object)
+        if (Array.isArray(object)) return object.map(v => this.toLocal_(sender, v))
+        if (typeof object === 'object') {
+            let result: any = {}
+            for (let key of Object.keys(object))
+                result[key] = this.toLocal_(sender, object[key])
+            return result
+        }
+        return object
+    }
+
+    private toLocalFunction_(sender: Endpoint, callable: Callable) {
+        let call = this.call.bind(this)
+        return function (): Promise<any> {
+            return call(sender, callable._solstice_id, [...arguments])
+        }
     }
 
     private toLocalFunction(sender: Endpoint, callable: Callable) {
@@ -65,8 +96,8 @@ export class Local {
     private readonly _callables: Map<UUID, Function> = new Map()
     private readonly _uuid: () => UUID;
 
-    constructor(gen: () => UUID = uuid) {
-        this._uuid = gen;
+    constructor(uuid: () => UUID = v4) {
+        this._uuid = uuid;
     }
 
     call(id: UUID, ...parameters: any[]) {
