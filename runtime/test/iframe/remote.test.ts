@@ -28,7 +28,12 @@ describe('iFrame communication: Remote', () => {
 
             _remote.send(_sandbox.contentWindow!, requestRemoteCall.bind(this))
 
-            await expect(message).resolves.toEqual({id: 'message-id', type: 'call', callable: 'callable'})
+            await expect(message).resolves.toEqual({
+                id: 'message-id',
+                type: 'call',
+                callable: 'callable',
+                parameters: []
+            })
         })
 
         it('should return received response from remote to sender', async () => {
@@ -70,11 +75,26 @@ describe('iFrame communication: Remote', () => {
             let message = remoteReceived()
             let context = _remote.fromRemote({func: {_solstice_id: 'func'}}, _sandbox.contentWindow!)
 
-            context.func()
+            context.func('parameter')
 
-            await expect(message).resolves.toEqual(requestRemoteCall('message-id', 'func'))
-
+            await expect(message).resolves.toEqual(requestRemoteCall('message-id', 'func', 'parameter'))
         })
+
+        it('should pass callback as parameter to function restored from remote context', async () => {
+            vi.mocked(v4).mockReset()
+            vi.mocked(v4).mockReturnValueOnce('function-id')
+            vi.mocked(v4).mockReturnValueOnce('message-id')
+
+            let message = remoteReceived()
+            let context = _remote.fromRemote({func: {_solstice_id: 'func'}}, _sandbox.contentWindow!)
+
+            let callback = () => 'callback'
+            context.func(callback)
+
+            await expect(message).resolves.toEqual(requestRemoteCall('message-id', 'func', {_solstice_id: 'function-id'}))
+        })
+
+
         it('should restore function nested in other object from remote context', async () => {
             let message = remoteReceived()
             let context = _remote.fromRemote({nested: {func: {_solstice_id: 'func'}}}, _sandbox.contentWindow!)
@@ -85,8 +105,8 @@ describe('iFrame communication: Remote', () => {
         })
     })
 
-    function requestRemoteCall(id: string, callable: string = 'callable') {
-        return {id: id, type: 'call', callable: callable}
+    function requestRemoteCall(id: string, callable: string = 'callable', ...parameters: any[]) {
+        return {id: id, type: 'call', callable: callable, parameters: parameters}
     }
 
     function response(id: string = 'message-id', response: any = 'received'): CallableResponse {

@@ -2,7 +2,7 @@ import {v4 as uuid} from 'uuid'
 
 export type Context = any
 export type Callable = { _solstice_id: string }
-export type CallableRequest = { id: string, type: 'call', callable: string, parameters?: any[] }
+export type CallableRequest = { id: string, type: 'call', callable: string, parameters: any[] }
 export type CallableResponse = { id: string, type: 'response', response: any }
 
 type Receiver = (value: any) => void
@@ -42,8 +42,9 @@ export class Remote {
     private createCallable(callable: Callable, remote: Window) {
         let call = this.send.bind(this)
         return function (): Promise<any> {
+            let parameters = new Local([...arguments]).toRemote()
             return call(remote, (id) => {
-                return {id: id, type: 'call', callable: callable._solstice_id}
+                return {id: id, type: 'call', callable: callable._solstice_id, parameters: parameters}
             })
         }
     }
@@ -63,10 +64,9 @@ export class Local {
         return this._remote
     }
 
-    receive(request: CallableRequest, fromRemote: (parameter: any) => any = _ => _) {
+    receive(request: CallableRequest, fromRemote: (parameter: any) => any) {
         if (!this._callables.has(request.callable)) throw 'unknown callable'
-        return this._callables.get(request.callable)!.apply(this._context,
-            (request.parameters || []).map(fromRemote))
+        return this._callables.get(request.callable)!.apply(this._context, request.parameters.map(fromRemote))
     }
 
     private marshal(object: any): any {
