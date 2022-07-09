@@ -89,7 +89,6 @@ describe('Sandbox', () => {
             connectSandbox('connect', _hostContext)
             waitForSandboxConnection().then(_ => send(hostResponse))
 
-
             await expect(response).resolves.toEqual(hostResponse)
         })
 
@@ -110,9 +109,18 @@ describe('Sandbox', () => {
         })
 
         it('should handle call request from host', async () => {
+            let _fromRemoteCalled = {context: 'sandbox'}
+
+            const _remote = {
+                fromRemote: vi.fn(),
+            }
+            // @ts-ignore
+            vi.spyOn(Communication, 'Remote').mockImplementation(() => _remote)
+            _remote.fromRemote.mockReturnValue(_fromRemoteCalled)
+
             let request = new Promise((resolve) => {
-                _local.receive.mockImplementation((request: CallableRequest) => {
-                    resolve(request)
+                _local.receive.mockImplementation((request: CallableRequest, fromRemote: (p: any) => any) => {
+                    resolve([request, fromRemote({context: 'sandbox'})])
                     return 'whatever'
                 })
             })
@@ -122,7 +130,7 @@ describe('Sandbox', () => {
             connectSandbox()
             await waitForSandboxConnection().then(_ => send(callRequest))
 
-            await expect(request).resolves.toEqual(callRequest)
+            await expect(request).resolves.toEqual([callRequest, _fromRemoteCalled])
             await expect(waitForSandboxResponse()).resolves.toEqual({
                 id: callRequest.id,
                 type: 'response',
@@ -195,7 +203,7 @@ describe('Sandbox', () => {
     const waitForSandboxConnection = waitForSandboxResponse
 
     const callRequest = {
-        id: 'message-id', type: 'call', callable: 'callable'
+        id: 'message-id', type: 'call', callable: 'callable', parameters: []
     }
 
     const hostResponse = {

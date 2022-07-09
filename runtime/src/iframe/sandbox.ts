@@ -102,7 +102,7 @@ export class Sandbox {
                             break
                         case 'call':
                             this.checkConnectedWith(target)
-                            this._sandbox.receive(request)
+                            this._sandbox.receive(request, (p) => this._host.fromRemote(p, target))
                             send({id: request.id, type: 'response', response: undefined}, target)
                             break
                         case 'response':
