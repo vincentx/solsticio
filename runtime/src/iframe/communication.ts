@@ -42,7 +42,7 @@ export class Remote {
     private createCallable(callable: Callable, local: Local, remote: Window) {
         let call = this.send.bind(this)
         return function (): Promise<any> {
-            let parameters = local.temp([...arguments])
+            let parameters = local.toRemote_([...arguments])
             return call(remote, (id) => {
                 return {id: id, type: 'call', callable: callable._solstice_id, parameters: parameters}
             })
@@ -57,13 +57,9 @@ export class Local {
 
     constructor(context: Context) {
         this._context = context;
-        this._remote = this.marshal(context)
+        this._remote = this.toRemote_(context)
     }
-
-    temp(object: any): any {
-        return this.marshal(object)
-    }
-
+    
     toRemote(): Context {
         return this._remote
     }
@@ -73,13 +69,13 @@ export class Local {
         return this._callables.get(request.callable)!.apply(this._context, request.parameters.map(fromRemote))
     }
 
-    private marshal(object: any): any {
-        if (Array.isArray(object)) return object.map(v => this.marshal(v))
+    toRemote_(object: any): any {
+        if (Array.isArray(object)) return object.map(v => this.toRemote_(v))
         if (typeof object === 'function') return this.marshalCallable(object)
         if (typeof object === 'object') {
             let result: any = {}
             for (let key of Object.keys(object))
-                result[key] = this.marshal(object[key])
+                result[key] = this.toRemote_(object[key])
             return result
         }
         return object

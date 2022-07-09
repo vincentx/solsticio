@@ -20,7 +20,7 @@ describe('Host', () => {
     const _local = {
         toRemote: vi.fn(),
         receive: vi.fn(),
-        temp: vi.fn()
+        toRemote_: vi.fn()
     }
 
     const _hostContext = {
@@ -166,7 +166,7 @@ describe('Host', () => {
         it('should send result back to remote sandbox', async () => {
             let response = waitForSandboxResponse()
             _local.receive.mockReturnValue('result')
-            _local.temp.mockReturnValue('expose to remote result')
+            _local.toRemote_.mockReturnValue('expose to remote result')
 
             let instance = host()
             await instance.connect('@sandbox', _sandbox.contentWindow!)
