@@ -19,8 +19,10 @@ export class Host {
     private readonly _connecting: Window[] = []
     private readonly _host: Local
     private readonly _sandbox: Remote = new Remote()
+    private readonly _config: Configuration;
 
     constructor(config: Configuration) {
+        this._config = config
         this._host = new Local(config.context)
 
         config.container.addEventListener('message', (e) => {
@@ -37,7 +39,7 @@ export class Host {
                         this._sandbox.receive(request)
                         break
                     case 'error':
-                        config.errors.error(request.error.message)
+                        config.errors.collect(request.error.message)
                         break
                 }
             } catch (message) {
@@ -50,10 +52,15 @@ export class Host {
         this._connecting.push(sandbox)
         return this._sandbox.send(sandbox, (id) => ({id: id, type: 'context', context: this._host.toRemote()}))
             .then(context => {
-                let remote = this._sandbox.fromRemote(context, sandbox)
-                this._sandboxes.set(id, remote)
-                this._connected.push(sandbox)
-                return remote
+                if (this._sandboxes.has(id)) {
+                    this._connecting.splice(this._connecting.indexOf(sandbox), 1)
+                    this._config.errors.error(id, 'already registered')
+                } else {
+                    let remote = this._sandbox.fromRemote(context, sandbox)
+                    this._sandboxes.set(id, remote)
+                    this._connected.push(sandbox)
+                    return remote
+                }
             })
     }
 
@@ -99,7 +106,7 @@ export class Sandbox {
                             this._host!.receive(request)
                             break
                         case 'error':
-                            config.errors.error(request.error.message)
+                            config.errors.collect(request.error.message)
                             break
                     }
                 } catch (message) {

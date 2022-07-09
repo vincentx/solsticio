@@ -11,6 +11,7 @@ type UUID = string
 
 export class Remote {
     private readonly _receivers: Map<UUID, Receiver> = new Map()
+    //TODO append prefix to avoid conflict
 
     receive(response: CallableResponse) {
         if (!this._receivers.has(response.id)) throw 'callable not called'

@@ -71,7 +71,7 @@ export class Runtime {
     }
 
     private error(plugin: Plugin, ...message: any[]) {
-        this._errors.error('plugin', plugin.id, ':', ...message)
+        this._errors.collect('plugin', plugin.id, ':', ...message)
     }
 
     private registerExtensionPoint(id: Identifier, extensionPoint: ExtensionPoint<Extension>) {

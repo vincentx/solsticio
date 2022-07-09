@@ -82,7 +82,19 @@ describe('Host', () => {
             expect(_remote.fromRemote.mock.lastCall![1]).toBe(_sandbox.contentWindow!)
         })
 
-        //TODO sandbox with same id
+        it('should not connect to sandbox if already connected with same id', async () => {
+            let sandboxContext = {context: 'sandbox'}
+            _remote.send.mockResolvedValue({context: 'sandbox from remote'})
+            _remote.fromRemote.mockReturnValue(sandboxContext)
+
+            let instance = host()
+            await instance.connect('@sandbox', _sandbox.contentWindow!)
+
+            let other = window.document.createElement('iframe')
+            window.document.body.appendChild(other)
+
+            await expect(instance.connect('@sandbox', other.contentWindow!)).rejects.toEqual('@sandbox already registered')
+        })
     })
 
     describe('access remote sandbox context', () => {

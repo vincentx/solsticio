@@ -47,7 +47,7 @@ describe('Sandbox', () => {
             await expect(promise).resolves.toEqual({message: 'already connected'})
         })
     })
-    //TODO error message handling
+
     describe('access remote host context', () => {
         const _remote = {
             fromRemote: vi.fn(),

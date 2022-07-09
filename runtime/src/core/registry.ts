@@ -13,7 +13,7 @@ export class Registry {
     }
 
     plugin(plugin: Plugin) {
-        if (this._plugins.has(plugin.id)) this._errors.error(plugin.id, 'already registered')
+        if (this._plugins.has(plugin.id)) this._errors.collect(plugin.id, 'already registered')
         else this._plugins.set(plugin.id, plugin)
     }
 
@@ -25,9 +25,9 @@ export class Registry {
         return this._host.connect(id, sandbox).then(context => {
             if (isPlugin(context)) {
                 let plugin = context as Plugin
-                if (plugin.id !== id) this._errors.error('sandbox', plugin.id, 'can not be registered as', id)
+                if (plugin.id !== id) this._errors.collect('sandbox', plugin.id, 'can not be registered as', id)
                 else this.plugin(plugin)
-            } else this._errors.error('sandbox', id, 'is not a plugin')
-        })
+            } else this._errors.collect('sandbox', id, 'is not a plugin')
+        }, error => this._errors.collect(error))
     }
 }
