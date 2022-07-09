@@ -1,9 +1,8 @@
 import {v4 as uuid} from 'uuid'
 
-
 export type Context = any
 export type Callable = { _solstice_id: string }
-export type CallableRequest = { id: string, type: 'call', callable: string }
+export type CallableRequest = { id: string, type: 'call', callable: string, parameters?: any[] }
 export type CallableResponse = { id: string, type: 'response', response: any }
 
 type Receiver = (value: any) => void
@@ -11,6 +10,7 @@ type UUID = string
 
 export class Remote {
     private readonly _receivers: Map<UUID, Receiver> = new Map()
+
     //TODO append prefix to avoid conflict
 
     receive(response: CallableResponse) {
@@ -63,21 +63,22 @@ export class Local {
         return this._remote
     }
 
-    receive(request: CallableRequest) {
+    receive(request: CallableRequest, fromRemote: (parameter: any) => any = _ => _) {
         if (!this._callables.has(request.callable)) throw 'unknown callable'
-        return this._callables.get(request.callable)!.apply(this._context)
+        return this._callables.get(request.callable)!.apply(this._context,
+            (request.parameters || []).map(fromRemote))
     }
 
-    private marshal(context: Context): Context {
-        if (Array.isArray(context)) return context.map(v => this.marshal(v))
-        if (typeof context === 'function') return this.marshalCallable(context)
-        if (typeof context === 'object') {
+    private marshal(object: any): any {
+        if (Array.isArray(object)) return object.map(v => this.marshal(v))
+        if (typeof object === 'function') return this.marshalCallable(object)
+        if (typeof object === 'object') {
             let result: any = {}
-            for (let key of Object.keys(context))
-                result[key] = this.marshal(context[key])
+            for (let key of Object.keys(object))
+                result[key] = this.marshal(object[key])
             return result
         }
-        return context
+        return object
     }
 
     private marshalCallable(func: Function): Callable {

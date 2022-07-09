@@ -76,6 +76,16 @@ describe('iFrame communication: Local', () => {
             expect(local.receive(request(remote.nested.func))).toEqual('nested func called')
         })
 
+        it('should call function on context with parameter', () => {
+            let local = new Local({
+                func: (parameter: any) => parameter
+            })
+
+            let remote = local.toRemote()
+
+            expect(local.receive(request(remote.func, 'string'), _ => 'remote')).toEqual('remote')
+        })
+
         it('should throw exception if unknown function required', () => {
             let local = new Local({
                 func: () => 'func called',
@@ -83,11 +93,9 @@ describe('iFrame communication: Local', () => {
 
             expect(() => local.receive(request({_solstice_id: 'unknown'}))).toThrowError('unknown callable')
         })
-
-        //TODO call with parameters
     })
 
-    function request(callable: Callable): CallableRequest {
-        return {id: 'message-id', type: 'call', callable: callable._solstice_id}
+    function request(callable: Callable, ...parameters: any[]): CallableRequest {
+        return {id: 'message-id', type: 'call', callable: callable._solstice_id, parameters: parameters}
     }
 })
