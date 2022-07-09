@@ -1,7 +1,7 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
-import {Endpoint, Local, Remote} from '../../src/iframe/communication'
+import {Endpoint, Local, Remote} from '../../src/iframe/duplex'
 
-describe('Communication: Remote', () => {
+describe('Duplex Callable: Remote Invocations', () => {
     let _remote: Remote
     let _sender: Endpoint
 

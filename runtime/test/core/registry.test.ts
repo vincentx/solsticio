@@ -1,7 +1,7 @@
 import {beforeEach, describe, expect, it} from 'vitest'
 import {Registry} from '../../src/core/registry'
 import {Sandbox} from '../../src/iframe/sandbox'
-import {Context} from '../../src/iframe/communication'
+import {Context} from '../../src/iframe/duplex'
 import {ErrorCollector} from "../../src/core/error";
 
 //@vitest-environment jsdom

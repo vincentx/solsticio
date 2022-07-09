@@ -8,11 +8,34 @@ export type CallableResponse = { id: string, type: 'response', response: any }
 export interface Endpoint {
     send: (message: Message) => void
     call?: (id: UUID, callable: UUID, parameters: any[]) => void
+    returns?: (id: UUID, result: any) => void
 }
 
 type UUID = string
 type Receiver = (value: any) => void
 type Message = { id: string }
+
+export class DuplexCallable {
+    private _local: Local;
+    private _remote: Remote;
+
+    constructor(local: Local, remote: Remote) {
+        this._local = local;
+        this._remote = remote;
+    }
+
+    handle(sender: Endpoint, request: CallableRequest | CallableResponse) {
+        switch (request.type) {
+            case 'call':
+                let result = this._local.call(request.callable, ...request.parameters.map(_ => this._remote.toLocal(sender, _)))
+                sender.returns!(request.id, result)
+                break
+            case 'response':
+                this._remote.receive(sender, request.id, request.response)
+                break
+        }
+    }
+}
 
 export class Remote {
     private readonly _receivers: Map<UUID, Receiver> = new Map()

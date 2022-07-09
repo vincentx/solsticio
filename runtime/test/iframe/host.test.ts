@@ -1,7 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {Host} from '../../src/iframe/sandbox'
-import * as Communication from '../../src/iframe/communication'
-import {CallableRequest, CallableResponse, Endpoint, Local} from '../../src/iframe/communication'
+import * as Communication from '../../src/iframe/duplex'
+import {CallableRequest, CallableResponse, Endpoint, Local} from '../../src/iframe/duplex'
 import {ErrorCollector} from "../../src/core/error";
 
 //@vitest-environment jsdom

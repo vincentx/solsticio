@@ -1,4 +1,4 @@
-import {CallableRequest, CallableResponse, Context, Endpoint, Local, Remote} from './communication'
+import {CallableRequest, CallableResponse, Context, Endpoint, Local, Remote} from './duplex'
 import {ErrorCollector} from '../core/error'
 
 type Error = { id: string, type: 'error', error: { message: string } }
