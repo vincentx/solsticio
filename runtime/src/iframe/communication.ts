@@ -71,11 +71,7 @@ export class Local {
     constructor(gen: () => UUID = uuid) {
         this._uuid = gen;
     }
-
-    receive(request: CallableRequest, toLocal: (parameter: any) => any) {
-        return this.call(request.callable, ...request.parameters.map(toLocal))
-    }
-
+    
     call(id: UUID, ...parameters: any[]) {
         if (!this._callables.has(id)) throw 'unknown callable'
         return this.toRemote(this._callables.get(id)!(...parameters))

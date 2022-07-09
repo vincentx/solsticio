@@ -20,6 +20,7 @@ describe('Host', () => {
     const _local = {
         toRemote: vi.fn(),
         receive: vi.fn(),
+        call: vi.fn()
     }
 
     const _hostContext = {
@@ -129,8 +130,8 @@ describe('Host', () => {
 
         it('should handle call request from connected sandbox', async () => {
             let request = new Promise((resolve) => {
-                _local.receive.mockImplementation((request: CallableRequest, fromRemote: (p: any) => any) => {
-                    resolve([request, fromRemote('something')])
+                _local.call.mockImplementation((id: string, ...parameters: any[]) => {
+                    resolve('parameter')
                 })
             })
 
@@ -138,7 +139,7 @@ describe('Host', () => {
             await instance.connect('@sandbox', _sandbox.contentWindow!)
 
             hostReceive(callRequest)
-            await expect(request).resolves.toEqual([callRequest, _fromRemoteCalled])
+            await expect(request).resolves.toEqual('parameter')
         })
 
         it('should not handle call request from unconnected sandbox', async () => unknownHost(callRequest))

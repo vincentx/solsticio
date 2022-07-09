@@ -101,6 +101,7 @@ describe('Sandbox', () => {
         const _local = {
             toRemote: vi.fn(),
             receive: vi.fn(),
+            call: vi.fn(),
         }
 
         beforeEach(() => {
@@ -119,8 +120,8 @@ describe('Sandbox', () => {
             _remote.toLocal.mockReturnValue(_fromRemoteCalled)
 
             let request = new Promise((resolve) => {
-                _local.receive.mockImplementation((request: CallableRequest, fromRemote: (p: any) => any) => {
-                    resolve([request, fromRemote({context: 'sandbox'})])
+                _local.call.mockImplementation((request: CallableRequest, fromRemote: (p: any) => any) => {
+                    resolve('parameter')
                     return 'whatever'
                 })
             })
@@ -130,7 +131,7 @@ describe('Sandbox', () => {
             connectSandbox()
             await waitForSandboxConnection().then(_ => send(callRequest))
 
-            await expect(request).resolves.toEqual([callRequest, _fromRemoteCalled])
+            await expect(request).resolves.toEqual('parameter')
             await expect(waitForSandboxResponse()).resolves.toEqual({
                 id: callRequest.id,
                 type: 'response',

@@ -36,8 +36,7 @@ export class Host {
                 switch (request.type) {
                     case 'call':
                         this.checkConnectedWith(target)
-                        let result = this._host.toRemote(this._host.receive(request,
-                            (p) => this._sandbox.toLocal(sender, p)))
+                        let result = this._host.toRemote(this._host.call(request.callable, ...request.parameters.map((p) => this._sandbox.toLocal(sender, p))))
                         send({
                             id: request.id,
                             type: 'response',
@@ -114,7 +113,7 @@ export class Sandbox {
                             break
                         case 'call':
                             this.checkConnectedWith(target)
-                            this._sandbox.receive(request, (p) => this._host.toLocal(sender, p))
+                            this._sandbox.call(request.callable, ...request.parameters.map((p) => this._host.toLocal(sender, p)))
                             send({id: request.id, type: 'response', response: undefined}, target)
                             break
                         case 'response':
