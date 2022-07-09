@@ -42,11 +42,28 @@ describe('Host-Sandbox integration', () => {
             await host.connect('@sandbox', _sandbox.contentWindow!)
             let sandbox = host.sandbox('@sandbox')
 
-            await sandbox.callback()
-            await sandbox.config.handler()
+            await sandbox.callback('parameter')
+            await sandbox.config.handler('parameter')
 
-            expect(callback).toHaveBeenCalled()
-            expect(handler).toHaveBeenCalled()
+            expect(callback).toHaveBeenCalledWith('parameter')
+            expect(handler).toHaveBeenCalledWith('parameter')
+        })
+
+        it('should pass function to connected sandbox', async () => {
+            let promise = new Promise<any>(resolve => {
+                $sandbox({
+                    callback: async (api) => {
+                        let result = await api()
+                        resolve(result)
+                    }
+                })
+            })
+
+            let host = $host()
+            await host.connect('@sandbox', _sandbox.contentWindow!)
+            await host.sandbox('@sandbox').callback(() => 'api called')
+
+            await expect(promise).resolves.toEqual('api called')
         })
     })
 
@@ -66,13 +83,13 @@ describe('Host-Sandbox integration', () => {
         it('should call host function from connected sandbox', async () => {
             let hostPromise = $sandbox({version: '1.0.0', config: {enable: true}}).host()
 
-            let host = $host({modal: {show: () => 'showed'}, info: () => ['host', 'context']})
+            let host = $host({modal: {show: (parameter) => parameter}, info: (parameter) => [parameter]})
             await host.connect('@sandbox', _sandbox.contentWindow!)
 
             let hostContext = await hostPromise
 
-            await expect(hostContext.modal.show()).resolves.toEqual('showed')
-            await expect(hostContext.info()).resolves.toEqual(['host', 'context'])
+            await expect(hostContext.modal.show('showed')).resolves.toEqual('showed')
+            await expect(hostContext.info('info')).resolves.toEqual(['info'])
         })
     })
 

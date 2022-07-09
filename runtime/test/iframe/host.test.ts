@@ -1,7 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {Host} from '../../src/iframe/sandbox'
 import * as Communication from '../../src/iframe/communication'
-import {CallableRequest, CallableResponse} from '../../src/iframe/communication'
+import {CallableRequest, CallableResponse, Local} from '../../src/iframe/communication'
 import {ErrorCollector} from "../../src/core/error";
 
 //@vitest-environment jsdom
@@ -20,6 +20,7 @@ describe('Host', () => {
     const _local = {
         toRemote: vi.fn(),
         receive: vi.fn(),
+        temp: vi.fn()
     }
 
     const _hostContext = {
@@ -82,7 +83,8 @@ describe('Host', () => {
             expect(instance.sandbox('@sandbox')).toEqual(sandboxContext)
 
             expect(_remote.fromRemote.mock.lastCall![0]).toEqual(_remoteReturns)
-            expect(_remote.fromRemote.mock.lastCall![1]).toBe(_sandbox.contentWindow!)
+            expect(_remote.fromRemote.mock.lastCall![1]).toEqual(_local)
+            expect(_remote.fromRemote.mock.lastCall![2]).toBe(_sandbox.contentWindow!)
         })
 
         it('should not connect to sandbox if already connected with same id', async () => {
@@ -164,14 +166,18 @@ describe('Host', () => {
         it('should send result back to remote sandbox', async () => {
             let response = waitForSandboxResponse()
             _local.receive.mockReturnValue('result')
-            _local.toRemote.mockReturnValue('expose to remote result')
+            _local.temp.mockReturnValue('expose to remote result')
 
             let instance = host()
             await instance.connect('@sandbox', _sandbox.contentWindow!)
 
             hostReceive(callRequest)
 
-            await expect(response).resolves.toEqual({id: callRequest.id, type: 'response', response: 'expose to remote result'})
+            await expect(response).resolves.toEqual({
+                id: callRequest.id,
+                type: 'response',
+                response: 'expose to remote result'
+            })
         })
     })
 

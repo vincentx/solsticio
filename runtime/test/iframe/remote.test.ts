@@ -1,14 +1,16 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
-import {CallableResponse, Remote} from '../../src/iframe/communication'
+import {CallableResponse, Local, Remote} from '../../src/iframe/communication'
 import {v4} from "uuid";
 
 // @vitest-environment jsdom
 describe('iFrame communication: Remote', () => {
     let _sandbox: HTMLIFrameElement
     let _remote: Remote
+    let _local: Local
 
     beforeEach(() => {
         _remote = new Remote()
+        _local = new Local({})
 
         _sandbox = window.document.createElement('iframe')
         window.document.body.appendChild(_sandbox)
@@ -57,23 +59,23 @@ describe('iFrame communication: Remote', () => {
 
     describe('restore context from remote', () => {
         it('should restore object from remote context', () => {
-            let context = _remote.fromRemote({data: 'data'}, _sandbox.contentWindow!)
+            let context = _remote.fromRemote({data: 'data'}, _local, _sandbox.contentWindow!)
             expect(context).toEqual({data: 'data'})
         })
 
         it('should restore nested object from remote context', () => {
-            let context = _remote.fromRemote({nested: {data: 'data'}}, _sandbox.contentWindow!)
+            let context = _remote.fromRemote({nested: {data: 'data'}}, _local, _sandbox.contentWindow!)
             expect(context).toEqual({nested: {data: 'data'}})
         })
 
         it('should restore array from remote context', () => {
-            let context = _remote.fromRemote({array: [1, 2, 3]}, _sandbox.contentWindow!)
+            let context = _remote.fromRemote({array: [1, 2, 3]}, _local, _sandbox.contentWindow!)
             expect(context).toEqual({array: [1, 2, 3]})
         })
 
         it('should restore function from remote context', async () => {
             let message = remoteReceived()
-            let context = _remote.fromRemote({func: {_solstice_id: 'func'}}, _sandbox.contentWindow!)
+            let context = _remote.fromRemote({func: {_solstice_id: 'func'}}, _local, _sandbox.contentWindow!)
 
             context.func('parameter')
 
@@ -86,7 +88,7 @@ describe('iFrame communication: Remote', () => {
             vi.mocked(v4).mockReturnValueOnce('message-id')
 
             let message = remoteReceived()
-            let context = _remote.fromRemote({func: {_solstice_id: 'func'}}, _sandbox.contentWindow!)
+            let context = _remote.fromRemote({func: {_solstice_id: 'func'}}, _local, _sandbox.contentWindow!)
 
             let callback = () => 'callback'
             context.func(callback)
@@ -97,7 +99,7 @@ describe('iFrame communication: Remote', () => {
 
         it('should restore function nested in other object from remote context', async () => {
             let message = remoteReceived()
-            let context = _remote.fromRemote({nested: {func: {_solstice_id: 'func'}}}, _sandbox.contentWindow!)
+            let context = _remote.fromRemote({nested: {func: {_solstice_id: 'func'}}}, _local, _sandbox.contentWindow!)
 
             context.nested.func()
 

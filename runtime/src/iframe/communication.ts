@@ -27,22 +27,22 @@ export class Remote {
         })
     }
 
-    fromRemote(context: Context, remote: Window): Context {
-        if (context._solstice_id) return this.createCallable(context, remote)
-        if (Array.isArray(context)) return context.map(v => this.fromRemote(v, remote))
+    fromRemote(context: Context, local: Local, remote: Window): Context {
+        if (context._solstice_id) return this.createCallable(context, local, remote)
+        if (Array.isArray(context)) return context.map(v => this.fromRemote(v, local, remote))
         if (typeof context === 'object') {
             let result: any = {}
             for (let key of Object.keys(context))
-                result[key] = this.fromRemote(context[key], remote)
+                result[key] = this.fromRemote(context[key], local, remote)
             return result
         }
         return context
     }
 
-    private createCallable(callable: Callable, remote: Window) {
+    private createCallable(callable: Callable, local: Local, remote: Window) {
         let call = this.send.bind(this)
         return function (): Promise<any> {
-            let parameters = new Local([...arguments]).toRemote()
+            let parameters = local.temp([...arguments])
             return call(remote, (id) => {
                 return {id: id, type: 'call', callable: callable._solstice_id, parameters: parameters}
             })
@@ -58,6 +58,10 @@ export class Local {
     constructor(context: Context) {
         this._context = context;
         this._remote = this.marshal(context)
+    }
+
+    temp(object: any): any {
+        return this.marshal(object)
     }
 
     toRemote(): Context {
