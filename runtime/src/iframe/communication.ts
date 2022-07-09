@@ -10,8 +10,14 @@ type UUID = string
 
 export class Remote {
     private readonly _receivers: Map<UUID, Receiver> = new Map()
+    private readonly _local : Local
 
     //TODO append prefix to avoid conflict
+
+
+    constructor(local: Local) {
+        this._local = local;
+    }
 
     receive(response: CallableResponse) {
         if (!this._receivers.has(response.id)) throw 'callable not called'
@@ -27,20 +33,21 @@ export class Remote {
         })
     }
 
-    fromRemote(context: Context, local: Local, remote: Window): Context {
-        if (context._solstice_id) return this.createCallable(context, local, remote)
-        if (Array.isArray(context)) return context.map(v => this.fromRemote(v, local, remote))
+    fromRemote(context: Context, remote: Window): Context {
+        if (context._solstice_id) return this.createCallable(context, remote)
+        if (Array.isArray(context)) return context.map(v => this.fromRemote(v, remote))
         if (typeof context === 'object') {
             let result: any = {}
             for (let key of Object.keys(context))
-                result[key] = this.fromRemote(context[key], local, remote)
+                result[key] = this.fromRemote(context[key], remote)
             return result
         }
         return context
     }
 
-    private createCallable(callable: Callable, local: Local, remote: Window) {
+    private createCallable(callable: Callable, remote: Window) {
         let call = this.send.bind(this)
+        let local = this._local
         return function (): Promise<any> {
             let parameters = local.toRemote([...arguments])
             return call(remote, (id) => {

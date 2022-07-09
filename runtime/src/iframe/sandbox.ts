@@ -19,12 +19,13 @@ export class Host {
     private readonly _connecting: Window[] = []
     private readonly _host: Local
     private readonly _hostContext: Context
-    private readonly _sandbox: Remote = new Remote()
+    private readonly _sandbox: Remote
     private readonly _config: Configuration;
 
     constructor(config: Configuration) {
         this._config = config
         this._host = new Local()
+        this._sandbox = new Remote(this._host)
         this._hostContext = this._host.toRemote(config.context)
 
         config.container.addEventListener('message', (e) => {
@@ -35,7 +36,7 @@ export class Host {
                     case 'call':
                         this.checkConnectedWith(target)
                         let result = this._host.toRemote(this._host.receive(request,
-                            (p) => this._sandbox.fromRemote(p, this._host, target)))
+                            (p) => this._sandbox.fromRemote(p, target)))
                         send({
                             id: request.id,
                             type: 'response',
@@ -64,7 +65,7 @@ export class Host {
                     this._connecting.splice(this._connecting.indexOf(sandbox), 1)
                     this._config.errors.error(id, 'already registered')
                 } else {
-                    let remote = this._sandbox.fromRemote(context, this._host, sandbox)
+                    let remote = this._sandbox.fromRemote(context, sandbox)
                     this._sandboxes.set(id, remote)
                     this._connected.push(sandbox)
                     return remote
@@ -89,12 +90,13 @@ export class Sandbox {
     private readonly _hostPromise: Promise<Context>
     private readonly _sandbox: Local
     private readonly _sandboxContext: Context
-    private readonly _host: Remote = new Remote()
+    private readonly _host: Remote
 
     private _connected: Window | null = null
 
     constructor(config: Configuration) {
         this._sandbox = new Local()
+        this._host = new Remote(this._sandbox)
         this._sandboxContext = this._sandbox.toRemote(config.context)
 
         this._hostPromise = new Promise<Context>((resolve) => {
@@ -108,7 +110,7 @@ export class Sandbox {
                             break
                         case 'call':
                             this.checkConnectedWith(target)
-                            this._sandbox.receive(request, (p) => this._host.fromRemote(p, this._sandbox, target))
+                            this._sandbox.receive(request, (p) => this._host.fromRemote(p, target))
                             send({id: request.id, type: 'response', response: undefined}, target)
                             break
                         case 'response':
@@ -134,7 +136,7 @@ export class Sandbox {
         if (this._connected != null) throw 'already connected'
         this._connected = target
         send(response(request, this._sandboxContext), target)
-        resolve(this._host.fromRemote(request.context, this._sandbox, target))
+        resolve(this._host.fromRemote(request.context, target))
     }
 
     private checkConnectedWith(target: Window) {
