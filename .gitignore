@@ -24,6 +24,7 @@ dist-ssr
 *.sw?
 
 coverage
+example
 
 #spike
 spike
