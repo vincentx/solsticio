@@ -112,6 +112,16 @@ describe('Plugin Registry', () => {
         expect(_errors).toEqual(['sandbox @ui is not a plugin'])
     })
 
+    it('should collect error if src is not valid url', () => {
+        _registry.sandbox({
+            id: '@ui',
+            window: _sandbox.contentWindow!,
+            src: 'not a url'
+        })
+
+        expect(_errors).toEqual(['invalid src'])
+    })
+
     function sandbox(context: Context, target: Window = _sandbox.contentWindow!) {
         new Sandbox({
             container: target,
@@ -127,5 +137,5 @@ describe('Plugin Registry', () => {
     }
 })
 
-function silence(...messages: any[]) {
+function silence(..._: any[]) {
 }
