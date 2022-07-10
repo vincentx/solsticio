@@ -34,5 +34,9 @@
   "author": {
     "name": "Vincent Hao Xu",
     "email": "vincent.hao.xu@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vincentx/solstice.git"
   }
 }
