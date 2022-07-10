@@ -7,8 +7,9 @@ type SolsticeRequest = CallableRequest | CallableResponse | Error
 export type Configuration = {
     container: Window
     context: Context
-    source: (e: MessageEvent) => Window
     errors: ErrorCollector
+    source: (e: MessageEvent) => Window
+    event?: (e: MessageEvent) => MessageEvent
 }
 
 const Connect = '_solstice_connect_sandbox'
@@ -72,10 +73,9 @@ export class Host {
 }
 
 export class Sandbox {
-    private _connected: Window | null = null
     private readonly _host: Promise<Context>
 
-    constructor(config: Configuration) {
+    constructor(config: Configuration, hostOrigin?: string) {
         let sandbox = new Local()
         let duplex = new DuplexCallable(sandbox, new Remote(sandbox))
 
@@ -87,21 +87,17 @@ export class Sandbox {
             }]]))
         })
 
-        config.container.addEventListener('message', (e: MessageEvent) => {
-            if (!isSolsticeRequest(e.data)) return
+        config.container.addEventListener('message', (event: MessageEvent) => {
+            let e = config.event ? config.event(event) : event
+
+            if (!isSolsticeRequest(e.data) || e.origin !== hostOrigin) return
             let request = e.data as SolsticeRequest
             let target = config.source(e)
-            let sender = endpoint(target)
+            let sender = endpoint(target, e.origin)
 
             try {
                 if (isError(request)) config.errors.collect(request.error.message)
-                else if (isConnect(request)) {
-                    this.connected(target)
-                    duplex.handle(sender, request as CallableRequest | CallableResponse)
-                } else {
-                    this.checkConnected(target)
-                    duplex.handle(sender, request as CallableRequest | CallableResponse)
-                }
+                else duplex.handle(sender, request as CallableRequest | CallableResponse)
             } catch (message) {
                 sender.error(request, message)
             }
@@ -111,30 +107,20 @@ export class Sandbox {
     host(): Promise<Context> {
         return this._host
     }
-
-    private connected(target: Window) {
-        if (this._connected != null) throw 'already connected'
-        this._connected = target
-    }
-
-    private checkConnected(target: Window) {
-        if (this._connected == null) throw 'not connected'
-        if (this._connected != target) throw 'not allowed'
-    }
 }
 
-function endpoint(window: Window) {
+function endpoint(window: Window, origin: string = '*') {
     return {
         error(request: SolsticeRequest, message: any) {
-            window.postMessage({id: request.id, type: 'error', error: {message: message}}, '*')
+            window.postMessage({id: request.id, type: 'error', error: {message: message}}, origin)
         },
 
         call(id: string, callable: string, parameters: any[]) {
-            window.postMessage({id: id, type: 'call', callable: callable, parameters: parameters}, '*')
+            window.postMessage({id: id, type: 'call', callable: callable, parameters: parameters}, origin)
         },
 
         returns(id: string, result: any) {
-            window.postMessage({id: id, type: 'response', response: result}, '*')
+            window.postMessage({id: id, type: 'response', response: result}, origin)
         }
     }
 }
@@ -147,8 +133,4 @@ function isSolsticeRequest(request: any): request is SolsticeRequest {
     return request && request.id && ((request.type === 'call' && request.callable && request.parameters) ||
         (request.type === 'response' && request.response) ||
         (request.type === 'error' && request.error && request.error.message))
-}
-
-function isConnect(request: SolsticeRequest): request is CallableRequest {
-    return request.type === 'call' && request.callable === Connect
 }

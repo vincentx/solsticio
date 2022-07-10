@@ -10,9 +10,11 @@ describe('Host-Sandbox integration', () => {
 
     beforeEach(() => {
         _host = window.document.createElement('iframe')
+        _host.src = 'https://host.com'
         window.document.body.appendChild(_host)
 
         _sandbox = window.document.createElement('iframe')
+        _sandbox.src = 'https://sandbox.com'
         window.document.body.appendChild(_sandbox)
 
         _errors = []
@@ -93,8 +95,13 @@ describe('Host-Sandbox integration', () => {
             container: _sandbox.contentWindow!,
             context: context,
             source: source,
-            errors: new ErrorCollector(e => _errors.push(e))
-        })
+            errors: new ErrorCollector(e => _errors.push(e)),
+            event: (e) => ({
+                data: e.data,
+                source: source(e),
+                origin: 'https://host.com'
+            } as MessageEvent)
+        }, 'https://host.com')
     }
 
     function $host(context: any = {}, source: (e: MessageEvent) => Window = _ => _sandbox.contentWindow!) {
@@ -102,7 +109,12 @@ describe('Host-Sandbox integration', () => {
             container: _host.contentWindow!,
             context: context,
             source: source,
-            errors: new ErrorCollector(e => _errors.push(e))
+            errors: new ErrorCollector(e => _errors.push(e)),
+            event: (e) => ({
+                data: e.data,
+                source: source(e),
+                origin: 'https://sandbox.com'
+            } as MessageEvent)
         })
     }
 })
