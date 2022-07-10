@@ -95,6 +95,7 @@ describe('Host-Sandbox integration', () => {
             container: _sandbox.contentWindow!,
             context: context,
             errors: new ErrorCollector(e => _errors.push(e)),
+            log: silence,
             event: (e) => ({
                 data: e.data,
                 source: _host.contentWindow!,
@@ -108,11 +109,15 @@ describe('Host-Sandbox integration', () => {
             container: _host.contentWindow!,
             context: context,
             errors: new ErrorCollector(e => _errors.push(e)),
+            log: silence,
             event: (e) => ({
                 data: e.data,
                 source: _sandbox.contentWindow!,
                 origin: 'https://sandbox.com'
             } as MessageEvent)
         })
+    }
+
+    function silence(...messages: any[]) {
     }
 })

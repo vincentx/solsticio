@@ -8,6 +8,7 @@ export type Configuration = {
     container: Window
     context: Context
     errors: ErrorCollector
+    log: (...message: any[]) => void
     event?: (e: MessageEvent) => MessageEvent
 }
 
@@ -31,7 +32,7 @@ export class Host {
     }
 
     connect(id: string, sandbox: Window, origin: string): Promise<Context> {
-        let remote = endpoint(sandbox, origin)
+        let remote = endpoint(sandbox, origin, this._config.log)
         this._origins.push(origin)
         return this._sandbox.call(remote, Connect, [this._context])
             .then((context) => {
@@ -77,31 +78,31 @@ function handle(config: Configuration, duplex: DuplexCallable, origins: string[]
     return function (event: MessageEvent) {
         let e = config.event ? config.event(event) : event
 
+        config.log('Receive message from ', e.origin)
+
         if (!isSolsticeRequest(e.data) || !origins.includes(e.origin)) return
         let request = e.data as SolsticeRequest
-        let remote = endpoint(e.source as Window, e.origin)
+        let remote = endpoint(e.source as Window, e.origin, config.log)
 
-        try {
-            if (isError(request)) config.errors.collect(request.error.message)
-            else duplex.handle(remote, request as CallableRequest | CallableResponse)
-        } catch (message) {
-            remote.error(request, message)
-        }
+        config.log!('Receive message ', request, ' from ', e.origin)
+        if (isError(request)) config.errors.collect(request.error.message)
+        else duplex.handle(remote, request as CallableRequest | CallableResponse)
     }
 }
 
-function endpoint(window: Window, origin: string) {
-    return {
-        error(request: SolsticeRequest, message: any) {
-            window.postMessage({id: request.id, type: 'error', error: {message: message}}, origin)
-        },
+function endpoint(window: Window, origin: string, log: (...message: any[]) => void) {
+    function send(message: any) {
+        log('Sending message ', message, ' to ', origin)
+        window.postMessage(message, origin)
+    }
 
+    return {
         call(id: string, callable: string, parameters: any[]) {
-            window.postMessage({id: id, type: 'call', callable: callable, parameters: parameters}, origin)
+            send({id: id, type: 'call', callable: callable, parameters: parameters})
         },
 
         returns(id: string, result: any) {
-            window.postMessage({id: id, type: 'response', response: result}, origin)
+            send({id: id, type: 'response', response: result})
         }
     }
 }

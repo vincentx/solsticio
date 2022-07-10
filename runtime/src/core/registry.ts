@@ -2,6 +2,12 @@ import {isPlugin, Plugin} from './runtime'
 import {Configuration, Host} from '../iframe/sandbox'
 import {ErrorCollector} from "./error";
 
+export type SandboxPlugin = {
+    id: string
+    src: string
+    window: Window
+}
+
 export class Registry {
     private readonly _plugins: Map<string, Plugin> = new Map()
     private readonly _host: Host
@@ -21,13 +27,13 @@ export class Registry {
         return [...this._plugins.values()]
     }
 
-    sandbox(id: string, sandbox: Window) {
-        return this._host.connect(id, sandbox).then(context => {
+    sandbox(sandbox: SandboxPlugin) {
+        return this._host.connect(sandbox.id, sandbox.window, new URL(sandbox.src).origin).then(context => {
             if (isPlugin(context)) {
                 let plugin = context as Plugin
-                if (plugin.id !== id) this._errors.collect('sandbox', plugin.id, 'can not be registered as', id)
+                if (plugin.id !== sandbox.id) this._errors.collect('sandbox', plugin.id, 'can not be registered as', sandbox.id)
                 else this.plugin(plugin)
-            } else this._errors.collect('sandbox', id, 'is not a plugin')
+            } else this._errors.collect('sandbox', sandbox.id, 'is not a plugin')
         }, error => this._errors.collect(error))
     }
 }

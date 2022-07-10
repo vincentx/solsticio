@@ -216,11 +216,15 @@ describe('Host', () => {
             container: _container!,
             context: context,
             errors: new ErrorCollector((e) => _errors.push(e)),
+            log: silence,
             event: (e) => ({
                 data: e.data,
                 source: _sandbox,
                 origin: 'https://sandbox.com'
             } as MessageEvent)
         })
+    }
+
+    function silence(...messages: any[]) {
     }
 })

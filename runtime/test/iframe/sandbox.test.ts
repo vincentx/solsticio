@@ -124,6 +124,7 @@ describe('Sandbox', () => {
         return new Sandbox({
             container: _container!,
             context: context,
+            log: silence,
             errors: new ErrorCollector((e) => _errors.push(e))
         }, _hostOrigin)
     }
@@ -139,5 +140,8 @@ describe('Sandbox', () => {
             source: _container,
             origin: _hostOrigin
         }
+    }
+
+    function silence(...messages: any[]) {
     }
 })

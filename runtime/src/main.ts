@@ -5,24 +5,27 @@ import {Sandbox} from './iframe/sandbox'
 
 export namespace Solstice {
 
-    export function plugin(descriptor: Plugin) {
+    export function plugin(descriptor: Plugin, hostOrigin: string, log = silence) {
         return new Sandbox({
             container: window,
             context: descriptor,
-            source: e => e.source as Window,
+            log: log,
             errors: new ErrorCollector(console.log)
-        })
+        }, hostOrigin)
     }
 
-    export async function runtime(api: any, register: (registry: Registry) => void) {
+    export async function runtime(api: any, register: (registry: Registry) => void, log = silence) {
         let errorCollector = new ErrorCollector(console.log)
         let registry = new Registry({
             container: window,
             context: api,
-            source: e => e.source as Window,
-            errors: errorCollector
+            errors: errorCollector,
+            log: log
         }, errorCollector)
         await register(registry)
         return new Runtime(errorCollector, ...registry.plugins())
+    }
+
+    function silence(..._: any[]) {
     }
 }
