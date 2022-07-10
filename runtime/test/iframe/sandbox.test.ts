@@ -124,7 +124,6 @@ describe('Sandbox', () => {
         return new Sandbox({
             container: _container!,
             context: context,
-            source: (e) => e.source as Window,
             errors: new ErrorCollector((e) => _errors.push(e))
         }, _hostOrigin)
     }

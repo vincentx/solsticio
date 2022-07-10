@@ -216,7 +216,6 @@ describe('Host', () => {
             container: _container!,
             context: context,
             errors: new ErrorCollector((e) => _errors.push(e)),
-            source: (e) => e.source as Window,
             event: (e) => ({
                 data: e.data,
                 source: _sandbox,

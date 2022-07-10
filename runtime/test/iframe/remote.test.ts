@@ -8,7 +8,8 @@ describe('Duplex Callable: Remote Invocations', () => {
     beforeEach(() => {
         _remote = new Remote(new Local(() => 'function-id'), () => 'message-id')
         _sender = {
-            call: vi.fn()
+            call: vi.fn(),
+            returns: vi.fn()
         }
     })
 

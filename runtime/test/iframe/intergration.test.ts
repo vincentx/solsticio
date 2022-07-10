@@ -90,29 +90,27 @@ describe('Host-Sandbox integration', () => {
         })
     })
 
-    function $sandbox(context: any, source: (e: MessageEvent) => Window = _ => _host.contentWindow!) {
+    function $sandbox(context: any) {
         return new Sandbox({
             container: _sandbox.contentWindow!,
             context: context,
-            source: source,
             errors: new ErrorCollector(e => _errors.push(e)),
             event: (e) => ({
                 data: e.data,
-                source: source(e),
+                source: _host.contentWindow!,
                 origin: 'https://host.com'
             } as MessageEvent)
         }, 'https://host.com')
     }
 
-    function $host(context: any = {}, source: (e: MessageEvent) => Window = _ => _sandbox.contentWindow!) {
+    function $host(context: any = {}) {
         return new Host({
             container: _host.contentWindow!,
             context: context,
-            source: source,
             errors: new ErrorCollector(e => _errors.push(e)),
             event: (e) => ({
                 data: e.data,
-                source: source(e),
+                source: _sandbox.contentWindow!,
                 origin: 'https://sandbox.com'
             } as MessageEvent)
         })

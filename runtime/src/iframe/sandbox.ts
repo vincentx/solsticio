@@ -8,7 +8,6 @@ export type Configuration = {
     container: Window
     context: Context
     errors: ErrorCollector
-    source: (e: MessageEvent) => Window
     event?: (e: MessageEvent) => MessageEvent
 }
 
@@ -28,35 +27,18 @@ export class Host {
         this._context = host.toRemote(config.context)
         this._config = config
 
-        let duplex = new DuplexCallable(host, this._sandbox)
-
-        config.container.addEventListener('message', (event) => {
-            let e = config.event ? config.event(event) : event
-
-            if (!isSolsticeRequest(e.data) || !this._origins.includes(e.origin)) return
-            let request = e.data as SolsticeRequest
-            let target = config.source(e)
-            let sender = endpoint(target, e.origin)
-
-            try {
-                if (isError(request)) config.errors.collect(request.error.message)
-                else duplex.handle(sender, request as CallableRequest | CallableResponse)
-            } catch (message) {
-                sender.error(request, message)
-            }
-        })
+        config.container.addEventListener('message', handle(config, new DuplexCallable(host, this._sandbox), this._origins))
     }
 
-    // @ts-ignore
-    connect(id: string, sandbox: Window, origin?: string): Promise<Context> {
-        let sender = endpoint(sandbox, origin)
-        this._origins.push(origin!)
-        return this._sandbox.call(sender, Connect, [this._context])
+    connect(id: string, sandbox: Window, origin: string): Promise<Context> {
+        let remote = endpoint(sandbox, origin)
+        this._origins.push(origin)
+        return this._sandbox.call(remote, Connect, [this._context])
             .then((context) => {
                 if (this._sandboxes.has(id)) {
                     this._config.errors.error(id, 'already registered')
                 } else {
-                    let sandbox = this._sandbox.toLocal(sender, context)
+                    let sandbox = this._sandbox.toLocal(remote, context)
                     this._sandboxes.set(id, sandbox)
                     return sandbox
                 }
@@ -71,9 +53,8 @@ export class Host {
 export class Sandbox {
     private readonly _host: Promise<Context>
 
-    constructor(config: Configuration, hostOrigin?: string) {
+    constructor(config: Configuration, hostOrigin: string) {
         let sandbox = new Local()
-        let duplex = new DuplexCallable(sandbox, new Remote(sandbox))
 
         this._host = new Promise<Context>((resolve) => {
             let context = sandbox.toRemote(config.context)
@@ -83,21 +64,8 @@ export class Sandbox {
             }]]))
         })
 
-        config.container.addEventListener('message', (event: MessageEvent) => {
-            let e = config.event ? config.event(event) : event
-
-            if (!isSolsticeRequest(e.data) || e.origin !== hostOrigin) return
-            let request = e.data as SolsticeRequest
-            let target = config.source(e)
-            let sender = endpoint(target, e.origin)
-
-            try {
-                if (isError(request)) config.errors.collect(request.error.message)
-                else duplex.handle(sender, request as CallableRequest | CallableResponse)
-            } catch (message) {
-                sender.error(request, message)
-            }
-        })
+        config.container.addEventListener('message', handle(config,
+            new DuplexCallable(sandbox, new Remote(sandbox)), [hostOrigin]))
     }
 
     host(): Promise<Context> {
@@ -105,7 +73,24 @@ export class Sandbox {
     }
 }
 
-function endpoint(window: Window, origin: string = '*') {
+function handle(config: Configuration, duplex: DuplexCallable, origins: string[]) {
+    return function (event: MessageEvent) {
+        let e = config.event ? config.event(event) : event
+
+        if (!isSolsticeRequest(e.data) || !origins.includes(e.origin)) return
+        let request = e.data as SolsticeRequest
+        let remote = endpoint(e.source as Window, e.origin)
+
+        try {
+            if (isError(request)) config.errors.collect(request.error.message)
+            else duplex.handle(remote, request as CallableRequest | CallableResponse)
+        } catch (message) {
+            remote.error(request, message)
+        }
+    }
+}
+
+function endpoint(window: Window, origin: string) {
     return {
         error(request: SolsticeRequest, message: any) {
             window.postMessage({id: request.id, type: 'error', error: {message: message}}, origin)
