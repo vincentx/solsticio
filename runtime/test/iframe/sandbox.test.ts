@@ -1,217 +1,184 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {Sandbox} from '../../src/iframe/sandbox'
-import * as Communication from '../../src/iframe/duplex'
-import {CallableRequest, CallableResponse, Endpoint} from '../../src/iframe/duplex'
 import {ErrorCollector} from '../../src/core/error'
+import * as Duplex from '../../src/iframe/duplex'
 
-// @vitest-environment jsdom
 describe('Sandbox', () => {
-    let _sandbox: HTMLIFrameElement
-    let _errors: (m: string) => void
-    let _errorReceived: Promise<string>
+    let _errors: string[]
+    let _container: any
+
+    let _handler
+    let _sandbox: Sandbox
 
     beforeEach(() => {
-        _errorReceived = new Promise<string>((resolve) => {
-            _errors = m => resolve(m)
-        })
-        _sandbox = window.document.createElement('iframe')
-        window.document.body.appendChild(_sandbox)
+        _container = {
+            addEventListener: vi.fn(),
+            postMessage: vi.fn()
+        }
+        _errors = []
     })
 
     describe('connect with remote host', () => {
         beforeEach(() => {
-            sandbox({data: 'context'})
+            _sandbox = sandbox({data: 'context'})
+            _handler = _container.addEventListener.mock.lastCall[1]
         })
 
-        it('should expose local context to remote host', async () => {
-            let response = waitForSandboxConnection()
+        it('should expose local context to remote host', () => {
+            _handler(connectSandbox())
 
-            connectSandbox()
-
-            await expect(response).resolves.toEqual({id: 'connect', type: 'response', response: {data: 'context'}})
-        })
-
-        it('should not connect to another host if already connected', async () => {
-            let promise = new Promise<Error>((resolve) => {
-                window.addEventListener('message', (_) => {
-                    window.addEventListener('message', (e) => {
-                        let response = e.data as { id: string, error: Error }
-                        expect(response.id).toEqual('second-connect')
-                        resolve(response.error)
-                    }, {once: true})
-                }, {once: true})
-            })
-            connectSandbox('first-connect')
-            connectSandbox('second-connect')
-
-            await expect(promise).resolves.toEqual({message: 'already connected'})
-        })
-    })
-
-    describe('access remote host context', () => {
-        const _remote = {
-            toLocal: vi.fn(),
-            receive: vi.fn(),
-        }
-
-        const _hostContext = {context: 'host'}
-
-        beforeEach(() => {
-            // @ts-ignore
-            vi.spyOn(Communication, 'Remote').mockImplementation(() => _remote)
-        })
-
-        afterEach(() => {
-            vi.resetAllMocks()
-        })
-
-        it('should build remote context after connection', async () => {
-            _remote.toLocal.mockReturnValue({context: 'remote host'})
-
-            let host = sandbox().host()
-
-            connectSandbox('connect', _hostContext)
-            await waitForSandboxConnection()
-
-            await expect(host).resolves.toEqual({context: 'remote host'})
-            expect(_remote.toLocal.mock.lastCall![1]).toBe(_hostContext)
-        })
-
-        it('should handle remote host response', async () => {
-            let response = new Promise((resolve) => {
-                _remote.toLocal.mockReturnValue({context: 'remote host'})
-                _remote.receive.mockImplementation((sender: Endpoint, id: string, response: any) => {
-                    resolve(response)
-                })
-            })
-
-            sandbox()
-            connectSandbox('connect', _hostContext)
-            waitForSandboxConnection().then(_ => send(hostResponse))
-
-            await expect(response).resolves.toEqual(hostResponse.response)
-        })
-
-        it('should not handle response if host not connected', async () => notConnected(hostResponse))
-
-        it('should not handle response from unknown host', async () => unknownHost(hostResponse))
-    })
-
-    describe('export context to remote host', () => {
-        const _local = {
-            toRemote: vi.fn(),
-            receive: vi.fn(),
-            call: vi.fn(),
-        }
-
-        beforeEach(() => {
-            // @ts-ignore
-            vi.spyOn(Communication, 'Local').mockImplementation(() => _local)
-        })
-
-        it('should handle call request from host', async () => {
-            let _fromRemoteCalled = {context: 'sandbox'}
-
-            const _remote = {
-                toLocal: vi.fn(),
-            }
-            // @ts-ignore
-            vi.spyOn(Communication, 'Remote').mockImplementation(() => _remote)
-            _remote.toLocal.mockReturnValue(_fromRemoteCalled)
-
-            let request = new Promise((resolve) => {
-                _local.call.mockImplementation((request: CallableRequest, fromRemote: (p: any) => any) => {
-                    resolve('parameter')
-                    return 'whatever'
-                })
-            })
-
-            sandbox()
-
-            connectSandbox()
-            await waitForSandboxConnection().then(_ => send(callRequest))
-
-            await expect(request).resolves.toEqual('parameter')
-            await expect(waitForSandboxResponse()).resolves.toEqual({
-                id: callRequest.id,
+            expect(_container.postMessage).toHaveBeenCalledWith({
+                id: 'connect-id',
                 type: 'response',
-                response: undefined
+                response: {data: 'context'}
+            }, '*')
+        })
+
+        it('should not connect to another host if already connected', () => {
+            _handler(connectSandbox('first-connect'))
+            _handler(connectSandbox('second-connect'))
+
+            expect(_container.postMessage).toHaveBeenLastCalledWith({
+                id: 'second-connect',
+                type: 'error',
+                error: {message: 'already connected'}
+            }, '*')
+
+        })
+
+        it('should access host context after connection', async () => {
+            _handler(connectSandbox('connect-id', {data: 'from host'}))
+
+            await expect(_sandbox.host()).resolves.toEqual({data: 'from host'})
+        })
+    })
+
+    describe('handle sandbox requests', () => {
+        let _duplex
+
+        beforeEach(() => {
+            _duplex = {
+                handle: vi.fn(),
+            }
+
+            // @ts-ignore
+            vi.spyOn(Duplex, 'DuplexCallable').mockImplementation(() => _duplex)
+
+            _sandbox = sandbox({data: 'context'})
+            _handler = _container.addEventListener.mock.lastCall[1]
+        })
+
+        it('should handle call request', () => {
+            _handler(connectSandbox())
+
+            _handler({
+                data: {id: 'request-id', type: 'call', callable: 'function-id', parameters: []},
+                source: _container
+            })
+
+            expect(_duplex.handle.mock.lastCall[1]).toEqual({
+                id: 'request-id',
+                type: 'call',
+                callable: 'function-id',
+                parameters: []
             })
         })
 
-        it('should not handle call request if host not connected', async () => notConnected(callRequest))
+        it('should handle call response', () => {
+            _handler(connectSandbox())
 
-        it('should not handle call request from unknown host', async () => unknownHost(callRequest))
+            _handler({
+                data: {id: 'request-id', type: 'response', response: 'response'},
+                source: _container
+            })
+
+            expect(_duplex.handle.mock.lastCall[1]).toEqual({id: 'request-id', type: 'response', response: 'response'})
+        })
+
+        it('should not handle call request if not connected',
+            notConnected({id: 'request-id', type: 'call', callable: 'function-id', parameters: []}))
+
+        it('should not handle call request if not sent from connected host',
+            notAllowed({id: 'request-id', type: 'call', callable: 'function-id', parameters: []}))
+
+        it('should not handle call response if not connected',
+            notConnected({id: 'request-id', type: 'response', response: 'response'}))
+
+        it('should not handle call response if not sent from connected host',
+            notAllowed({id: 'request-id', type: 'response', response: 'response'}))
+
+        it('should collect error if error received', () => {
+            _handler({data: {id: 'error-id', type: 'error', error: {message: 'reason'}}})
+
+            expect(_errors).toEqual(['reason'])
+        })
+
+        it('should not handle if not a sandbox request', () => {
+            let source = {
+                postMessage: vi.fn()
+            }
+            _handler({data: 'something', source})
+            expect(_duplex.handle).toHaveBeenCalledTimes(0)
+            expect(_container.postMessage).toHaveBeenCalledTimes(0)
+            expect(source.postMessage).toHaveBeenCalledTimes(0)
+        })
+
+        function notConnected(message: any) {
+            return function () {
+                _handler({
+                    data: message,
+                    source: _container
+                })
+
+                expect(_duplex.handle).toBeCalledTimes(0)
+                expect(_container.postMessage).toHaveBeenLastCalledWith({
+                    id: 'request-id',
+                    type: 'error',
+                    error: {message: 'not connected'}
+                }, '*')
+            }
+        }
+
+        function notAllowed(message: any) {
+            return function () {
+                let source = {
+                    postMessage: vi.fn()
+                }
+
+                _handler(connectSandbox())
+
+                _handler({
+                    data: message,
+                    source: source
+                })
+
+                expect(source.postMessage).toHaveBeenLastCalledWith({
+                    id: 'request-id',
+                    type: 'error',
+                    error: {message: 'not allowed'}
+                }, '*')
+            }
+        }
     })
 
-    it('should collect error sent from sandbox', async () => {
-        sandbox()
-        send({id: 'error-id', type: 'error', error: {message: 'error message'}})
-        await expect(_errorReceived).resolves.toEqual('error message')
-    })
-
-    async function notConnected(message: { id: string }) {
-        sandbox()
-        let response = waitForSandboxResponse()
-        _sandbox.contentWindow!.postMessage(message, '*')
-
-        await expect(response).resolves.toEqual({id: message.id, type: 'error', error: {message: 'not connected'}})
-    }
-
-    async function unknownHost(message: { id: string }) {
-        let source = vi.fn()
-
-        let unknown = window.document.createElement('iframe')
-        window.document.body.appendChild(unknown)
-
-        sandbox({}, source)
-
-        source.mockReturnValueOnce(window)
-        source.mockReturnValueOnce(unknown.contentWindow!)
-
-        let response = waitForSandboxConnection()
-            .then(_ => _sandbox.contentWindow!.postMessage(message, '*'))
-            .then(_ => waitForSandboxResponse(unknown.contentWindow!))
-
-        connectSandbox()
-
-        await expect(response).resolves.toEqual({id: message.id, type: 'error', error: {message: 'not allowed'}})
-    }
-
-    function sandbox(context: any = {}, source: (e: MessageEvent) => Window = _ => window) {
+    function sandbox(context: any = {},) {
         return new Sandbox({
-            container: _sandbox.contentWindow!,
+            container: _container!,
             context: context,
-            source: source,
-            errors: new ErrorCollector(_errors)
+            source: (e) => e.source as Window,
+            errors: new ErrorCollector((e) => _errors.push(e))
         })
     }
 
-    function connectSandbox(id: string = 'connect', context: any = {}) {
-        _sandbox.contentWindow!.postMessage({id: id, type: 'context', context: context}, '*')
-    }
-
-    function send(message: any) {
-        _sandbox.contentWindow!.postMessage(message, '*')
-    }
-
-    function waitForSandboxResponse(target: Window = window) {
-        return new Promise<any>((resolve) => {
-            target.addEventListener('message', (e) => resolve(e.data), {once: true})
-        })
-    }
-
-    const waitForSandboxConnection = waitForSandboxResponse
-
-    const callRequest = {
-        id: 'message-id', type: 'call', callable: 'callable', parameters: []
-    }
-
-    const hostResponse = {
-        id: 'message-id', type: 'response', response: 'response'
-    }
-
-    type Error = {
-        message: string
+    function connectSandbox(id: string = 'connect-id', context: any = {}) {
+        return {
+            data: {
+                id: id,
+                type: 'call',
+                callable: '_solstice_connect_sandbox',
+                parameters: [context]
+            },
+            source: _container
+        }
     }
 })

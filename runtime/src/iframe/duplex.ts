@@ -16,8 +16,8 @@ type Receiver = (value: any) => void
 type Message = { id: string }
 
 export class DuplexCallable {
-    private _local: Local;
-    private _remote: Remote;
+    private readonly _local: Local;
+    private readonly _remote: Remote;
 
     constructor(local: Local, remote: Remote) {
         this._local = local;

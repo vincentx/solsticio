@@ -1,4 +1,4 @@
-import {CallableRequest, CallableResponse, Context, Endpoint, Local, Remote} from './duplex'
+import {CallableRequest, CallableResponse, Context, DuplexCallable, Endpoint, Local, Remote} from './duplex'
 import {ErrorCollector} from '../core/error'
 
 type Error = { id: string, type: 'error', error: { message: string } }
@@ -12,6 +12,8 @@ export type Configuration = {
     source: (e: MessageEvent) => Window
     errors: ErrorCollector
 }
+
+const Connect = '_solstice_connect_sandbox'
 
 export class Host {
     private readonly _sandboxes: Map<string, Context> = new Map()
@@ -88,64 +90,72 @@ export class Host {
 }
 
 export class Sandbox {
-    private readonly _hostPromise: Promise<Context>
-    private readonly _sandbox: Local
-    private readonly _sandboxContext: Context
-    private readonly _host: Remote
-
     private _connected: Window | null = null
+    private readonly _host: Promise<Context>
 
     constructor(config: Configuration) {
-        this._sandbox = new Local()
-        this._host = new Remote(this._sandbox)
-        this._sandboxContext = this._sandbox.toRemote(config.context)
+        let sandbox = new Local()
+        let host = new Remote(sandbox)
 
-        this._hostPromise = new Promise<Context>((resolve) => {
-            config.container.addEventListener('message', (e) => {
-                let request = e.data as SandboxRequest
-                let target = config.source(e)
-                // @ts-ignore
-                let sender = toSender(target)
-                try {
-                    switch (request.type) {
-                        case 'context':
-                            this.handleContext(request, target, resolve)
-                            break
-                        case 'call':
-                            this.checkConnectedWith(target)
-                            this._sandbox.call(request.callable, ...request.parameters.map((p) => this._host.toLocal(sender, p)))
-                            send({id: request.id, type: 'response', response: undefined}, target)
-                            break
-                        case 'response':
-                            this.checkConnectedWith(target)
-                            this._host!.receive(sender, request.id, request.response)
-                            break
-                        case 'error':
-                            config.errors.collect(request.error.message)
-                            break
-                    }
-                } catch (message) {
-                    send(error(request, message), target)
+        this._host = new Promise<Context>((resolve) => {
+            let context = sandbox.toRemote(config.context)
+            sandbox.named(new Map([[Connect, function (host: Context) {
+                resolve(host)
+                return context
+            }]]))
+        })
+
+        let duplex = new DuplexCallable(sandbox, host)
+
+        config.container.addEventListener('message', (e: MessageEvent) => {
+            if (!this.isSandboxRequest(e.data)) return
+
+            let request = e.data as SandboxRequest
+            let target = config.source(e)
+            let sender = toSender(target)
+
+            try {
+                if (this.isError(request)) {
+                    config.errors.collect(request.error.message)
+                } else if (this.isConnect(request)) {
+                    this.checkNotConnected()
+                    this._connected = target
+                    duplex.handle(sender, request as CallableRequest)
+                } else {
+                    this.checkConnected(target)
+                    duplex.handle(sender, request as CallableRequest | CallableResponse)
                 }
-            })
+            } catch (message) {
+                send(error(request, message), target)
+            }
         })
     }
 
-    host(): Promise<Context> {
-        return this._hostPromise
+    private isSandboxRequest(request: any): request is SandboxRequest {
+        return request && request.id && ((request.type === 'call' && request.callable && request.parameters) ||
+            (request.type === 'response' && request.response) ||
+            (request.type === 'error' && request.error && request.error.message))
     }
 
-    private handleContext(request: SandboxConnectRequest, target: Window, resolve: (value: Context) => void) {
+    private isError(request: SandboxRequest): request is Error {
+        return request.type === 'error'
+    }
+
+    private isConnect(request: SandboxRequest): request is CallableRequest {
+        return request.type === 'call' && request.callable === Connect
+    }
+
+    private checkNotConnected() {
         if (this._connected != null) throw 'already connected'
-        this._connected = target
-        let sender = toSender(target)
-        send(response(request, this._sandboxContext), target)
-        resolve(this._host.toLocal(sender, request.context))
     }
 
-    private checkConnectedWith(target: Window) {
-        if (!this._connected) throw 'not connected'
+    private checkConnected(target: Window) {
+        if (this._connected == null) throw 'not connected'
         if (this._connected != target) throw 'not allowed'
+    }
+
+    host(): Promise<Context> {
+        return this._host
     }
 }
 
@@ -153,6 +163,14 @@ function toSender(window: Window): Endpoint {
     return {
         send(message) {
             window.postMessage(message, '*')
+        },
+
+        call(id: string, callable: string, parameters: any[]) {
+            window.postMessage({id: id, type: 'call', callable: callable, parameters: parameters}, '*')
+        },
+
+        returns(id: string, result: any) {
+            window.postMessage({id: id, type: 'response', response: result}, '*')
         }
     }
 }
@@ -163,8 +181,4 @@ function send(message: any, target: Window) {
 
 function error(request: SandboxRequest, message: any) {
     return {id: request.id, type: 'error', error: {message: message}}
-}
-
-function response(request: SandboxRequest, response: any): CallableResponse {
-    return {id: request.id, type: 'response', response: response}
 }
