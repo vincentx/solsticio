@@ -1,6 +1,6 @@
 {
   "name": "@solsticio/runtime",
-  "version": "0.5.1",
+  "version": "0.5.3",
   "description": "A plugin runtime for front end development",
   "scripts": {
     "dev": "vite",
@@ -25,13 +25,13 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/solstice-runtime.umd.js",
-  "types": "dist/solstice-runtime.umd.d.ts",
-  "module": "./dist/solstice-runtime.es.js",
+  "main": "./dist/main.umd.js",
+  "types": "dist/main.d.ts",
+  "module": "./dist/main.es.js",
   "exports": {
     ".": {
-      "import": "./dist/solstice-runtime.es.js",
-      "require": "./dist/solstice-runtime.es.js"
+      "import": "./dist/main.es.js",
+      "require": "./dist/main.es.js"
     }
   },
   "author": {
