@@ -1,5 +1,5 @@
 {
-  "name": "@solstice/runtime",
+  "name": "@solsticio/runtime",
   "version": "0.5.0",
   "description": "A plugin runtime for front end development",
   "scripts": {
@@ -38,5 +38,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/vincentx/solstice.git"
-  }
+  },
+  "license": "MIT"
 }
