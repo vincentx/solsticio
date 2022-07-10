@@ -1,227 +1,200 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {Host} from '../../src/iframe/sandbox'
-import * as Communication from '../../src/iframe/duplex'
-import {CallableRequest, CallableResponse, Endpoint, Local} from '../../src/iframe/duplex'
-import {ErrorCollector} from "../../src/core/error";
+import {ErrorCollector} from '../../src/core/error'
+import * as uuid from 'uuid'
+import * as Duplex from '../../src/iframe/duplex'
 
-//@vitest-environment jsdom
 describe('Host', () => {
-    let _host: HTMLIFrameElement
-    let _sandbox: HTMLIFrameElement
-    let _errors: (m: string) => void
-    let _errorReceived: Promise<string>
+    let _errors: string[]
+    let _container: any
 
-    const _remote = {
-        toLocal: vi.fn(),
-        receive: vi.fn(),
-        send: vi.fn()
-    }
-
-    const _local = {
-        toRemote: vi.fn(),
-        receive: vi.fn(),
-        call: vi.fn()
-    }
-
-    const _hostContext = {
-        context: 'host'
-    }
-
-    let _fromRemoteCalled = {context: 'sandbox'}
-    let _remoteReturns = {context: 'sandbox from remote'}
+    let _handler
+    let _host, _sandbox
 
     beforeEach(() => {
-        _host = window.document.createElement('iframe')
-        window.document.body.appendChild(_host)
+        _container = {
+            addEventListener: vi.fn(),
+            postMessage: vi.fn()
+        }
 
-        _sandbox = window.document.createElement('iframe')
-        window.document.body.appendChild(_sandbox)
+        _sandbox = {
+            postMessage: vi.fn()
+        }
 
-        _errorReceived = new Promise<string>((resolve) => {
-            _errors = m => resolve(m)
+        _errors = []
+    })
+
+    describe('connect remote sandbox', () => {
+        beforeEach(() => {
+            // @ts-ignore
+            vi.spyOn(uuid, 'v4').mockImplementation(() => 'message-id')
+
+            _host = host({context: 'host'})
+            _handler = _container.addEventListener.mock.lastCall[1]
         })
-        // @ts-ignore
-        vi.spyOn(Communication, 'Remote').mockImplementation(() => _remote)
-        // @ts-ignore
-        vi.spyOn(Communication, 'Local').mockImplementation(() => _local)
-    })
 
-    afterEach(() => {
-        vi.resetAllMocks()
-    })
-
-    describe('connect sandbox', () => {
         it('should return empty context for undefined sandbox', () => {
-            let instance = host()
-            expect(instance.sandbox('@undefined')).toEqual({})
+            expect(_host.sandbox('@undefined')).toEqual({})
         })
 
-        it('should send connect request to remote sandbox', () => {
-            _remote.send.mockReturnValue(new Promise<any>((_) => {
-            }))
-            _local.toRemote.mockReturnValue('remote context')
+        it('should call connect function on remote sandbox', () => {
+            _host.connect('@sandbox', _sandbox as Window)
 
-            let instance = host()
-            instance.connect('@sandbox', _sandbox.contentWindow!)
+            expect(_sandbox.postMessage).toHaveBeenCalledWith({
+                id: 'message-id', type: 'call', callable: '_solstice_connect_sandbox', parameters: [{context: 'host'}]
+            }, '*')
+        })
 
-            expect(_remote.send.mock.lastCall![1]('message-id')).toEqual({
-                id: 'message-id',
-                type: 'context',
-                context: 'remote context'
+        it('should register remote sandbox to connected sandboxes', async () => {
+            let sandbox = _host.connect('@sandbox', _sandbox as Window)
+
+            _handler({
+                data: {id: 'message-id', type: 'response', response: {context: 'sandbox'}},
+                source: _sandbox
             })
+
+            await expect(sandbox).resolves.toEqual({context: 'sandbox'})
         })
 
-        it('should register remote context to connected sandbox', async () => {
-            let sandboxContext = {context: 'sandbox'}
-            _remote.send.mockResolvedValue(_remoteReturns)
-            _remote.toLocal.mockReturnValue(sandboxContext)
+        it('should register remote sandbox as local version', async () => {
+            let sandbox = _host.connect('@sandbox', _sandbox as Window)
 
-            let instance = host()
-            await instance.connect('@sandbox', _sandbox.contentWindow!)
+            _handler({
+                data: {id: 'message-id', type: 'response', response: {func: {_solstice_id: 'function-id'}}},
+                source: _sandbox
+            })
 
-            expect(instance.sandbox('@sandbox')).toEqual(sandboxContext)
+            let sandboxContext = (await sandbox)
+            sandboxContext.func()
 
-            expect(_remote.toLocal.mock.lastCall![1]).toEqual(_remoteReturns)
+            expect(_sandbox.postMessage).toHaveBeenCalledWith(
+                {id: 'message-id', type: 'call', callable: 'function-id', parameters: []}, '*')
         })
 
-        it('should not connect to sandbox if already connected with same id', async () => {
-            let sandboxContext = {context: 'sandbox'}
-            _remote.send.mockResolvedValue(_fromRemoteCalled)
-            _remote.toLocal.mockReturnValue(sandboxContext)
+        it('should not register remote sandbox if id already registered', async () => {
+            let first = _host.connect('@sandbox', _sandbox as Window)
 
-            let instance = host()
-            await instance.connect('@sandbox', _sandbox.contentWindow!)
+            _handler({
+                data: {id: 'message-id', type: 'response', response: {context: 'sandbox'}},
+                source: _sandbox
+            })
 
-            let other = window.document.createElement('iframe')
-            window.document.body.appendChild(other)
+            await first
 
-            await expect(instance.connect('@sandbox', other.contentWindow!)).rejects.toEqual('@sandbox already registered')
+            let other = {
+                postMessage: vi.fn()
+            }
+
+            let second = _host.connect('@sandbox', other)
+            _handler({
+                data: {id: 'message-id', type: 'response', response: {context: 'sandbox'}},
+                source: other
+            })
+
+            await expect(second).rejects.toEqual('@sandbox already registered')
         })
     })
 
-    describe('access remote sandbox context', () => {
+    describe('handle host requests', () => {
+        let _duplex
+
         beforeEach(() => {
-            _remote.send.mockResolvedValue(_remoteReturns)
-            _remote.toLocal.mockReturnValue(_fromRemoteCalled)
+            _duplex = {
+                handle: vi.fn(),
+            }
+
+            // @ts-ignore
+            vi.spyOn(Duplex, 'DuplexCallable').mockImplementation(() => _duplex)
+
+            _host = host({context: 'host'})
+            _handler = _container.addEventListener.mock.lastCall[1]
         })
 
-        it('should handle remote response from connected sandbox', async () => {
-            let response = new Promise((resolve) => {
-                _remote.receive.mockImplementation((sender: Endpoint, id: string, result: any) => {
-                    resolve(result)
+        describe('connected sandbox', () => {
+            beforeEach(() => {
+                _host.connect('@sandbox', _sandbox as Window)
+                _handler({
+                    data: {id: 'message-id', type: 'response', response: {context: 'sandbox'}},
+                    source: _sandbox
                 })
             })
-            let instance = host()
-            await instance.connect('@sandbox', _sandbox.contentWindow!)
 
-            hostReceive(sandboxResponse)
 
-            await expect(response).resolves.toEqual(sandboxResponse.response)
-        })
+            it('should handle call request', () => {
+                _handler({
+                    data: {id: 'request-id', type: 'call', callable: 'function-id', parameters: []},
+                    source: _sandbox
+                })
 
-        it('should not handle remote response from unconnected sandbox', async () => unknownHost(sandboxResponse))
-    })
-
-    describe('expose context to remote sandbox', () => {
-        beforeEach(() => {
-            _remote.send.mockResolvedValue(_remoteReturns)
-            _remote.toLocal.mockReturnValue(_fromRemoteCalled)
-        })
-
-        it('should handle call request from connected sandbox', async () => {
-            let request = new Promise((resolve) => {
-                _local.call.mockImplementation((id: string, ...parameters: any[]) => {
-                    resolve('parameter')
+                expect(_duplex.handle.mock.lastCall[1]).toEqual({
+                    id: 'request-id',
+                    type: 'call',
+                    callable: 'function-id',
+                    parameters: []
                 })
             })
 
-            let instance = host()
-            await instance.connect('@sandbox', _sandbox.contentWindow!)
+            it('should handle call response', () => {
+                _handler({
+                    data: {id: 'request-id', type: 'response', response: 'response'},
+                    source: _sandbox
+                })
 
-            hostReceive(callRequest)
-            await expect(request).resolves.toEqual('parameter')
-        })
-
-        it('should not handle call request from unconnected sandbox', async () => unknownHost(callRequest))
-
-        it('should not handle call request from sandbox during connection', async () => {
-            _remote.send.mockReturnValue(new Promise<any>((_) => {
-            }))
-            let response = waitForSandboxResponse()
-
-            let instance = host()
-            instance.connect('@sandbox', _sandbox.contentWindow!)
-
-            hostReceive(callRequest)
-            await expect(response).resolves.toEqual({
-                id: callRequest.id,
-                type: 'error',
-                error: {message: 'not allowed'}
+                expect(_duplex.handle.mock.lastCall[1]).toEqual({
+                    id: 'request-id',
+                    type: 'response',
+                    response: 'response'
+                })
             })
         })
 
-        it('should send result back to remote sandbox', async () => {
-            let response = waitForSandboxResponse()
-            _local.receive.mockReturnValue('result')
-            _local.toRemote.mockReturnValue('expose to remote result')
+        describe('not connected sandbox', () => {
+            it('should not handle call request', () => {
+                _handler({
+                    data: {id: 'request-id', type: 'call', callable: 'function-id', parameters: []},
+                    source: _sandbox
+                })
 
-            let instance = host()
-            await instance.connect('@sandbox', _sandbox.contentWindow!)
-
-            hostReceive(callRequest)
-
-            await expect(response).resolves.toEqual({
-                id: callRequest.id,
-                type: 'response',
-                response: 'expose to remote result'
+                expect(_duplex.handle).toHaveBeenCalledTimes(0)
+                expect(_sandbox.postMessage).toHaveBeenLastCalledWith(
+                    {id: 'request-id', type: 'error', error: {message: 'not allowed'}}, '*')
             })
+
+            it('should not handle call response', () => {
+                _handler({
+                    data: {id: 'request-id', type: 'response', response: 'response'},
+                    source: _sandbox
+                })
+
+                expect(_duplex.handle).toHaveBeenCalledTimes(0)
+                expect(_sandbox.postMessage).toHaveBeenLastCalledWith(
+                    {id: 'request-id', type: 'error', error: {message: 'not allowed'}}, '*')
+            })
+        })
+
+        it('should collect error if error received', () => {
+            _handler({data: {id: 'error-id', type: 'error', error: {message: 'reason'}}})
+
+            expect(_errors).toEqual(['reason'])
+        })
+
+        it('should not handle if not a solstice request', () => {
+            let source = {
+                postMessage: vi.fn()
+            }
+            _handler({data: 'something', source})
+            expect(_duplex.handle).toHaveBeenCalledTimes(0)
+            expect(_container.postMessage).toHaveBeenCalledTimes(0)
+            expect(source.postMessage).toHaveBeenCalledTimes(0)
         })
     })
 
-    it('should collect error sent from sandbox', async () => {
-        host()
-        hostReceive({id: 'error-id', type: 'error', error: {message: 'error message'}})
-        await expect(_errorReceived).resolves.toEqual('error message')
-    })
-
-    async function unknownHost(message: CallableRequest | CallableResponse) {
-        let response = waitForSandboxResponse()
-
-        host()
-
-        hostReceive(message)
-        await expect(response).resolves.toEqual({id: message.id, type: 'error', error: {message: 'not allowed'}})
-    }
-
-    function host(context: any = _hostContext, source: (e: MessageEvent) => Window = _ => _sandbox.contentWindow!) {
+    function host(context: any = {}) {
         return new Host({
-            container: _host.contentWindow!,
+            container: _container!,
             context: context,
-            source: source,
-            errors: new ErrorCollector(_errors)
+            source: (e) => e.source as Window,
+            errors: new ErrorCollector((e) => _errors.push(e))
         })
-    }
-
-    function hostReceive(message: any) {
-        _host.contentWindow!.postMessage(message, '*')
-    }
-
-    function waitForSandboxResponse(target: Window = _sandbox.contentWindow!) {
-        return new Promise<any>((resolve) => {
-            target.addEventListener('message', (e) => resolve(e.data), {once: true})
-        })
-    }
-
-    const callRequest: CallableRequest = {
-        id: 'message-id',
-        type: 'call',
-        callable: 'callable',
-        parameters: []
-    }
-
-    const sandboxResponse: CallableResponse = {
-        id: 'message-id',
-        type: 'response',
-        response: 'any'
     }
 })

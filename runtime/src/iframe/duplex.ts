@@ -6,7 +6,7 @@ export type CallableRequest = { id: string, type: 'call', callable: string, para
 export type CallableResponse = { id: string, type: 'response', response: any }
 
 export interface Endpoint {
-    send: (message: Message) => void
+    send?: (message: Message) => void
     call?: (id: UUID, callable: UUID, parameters: any[]) => void
     returns?: (id: UUID, result: any) => void
 }
@@ -53,14 +53,6 @@ export class Remote {
         this._receivers.delete(id)
     }
 
-    send(sender: Endpoint, message: (id: string) => Message): Promise<any> {
-        return new Promise<any>((resolve) => {
-            let id = this._uuid()
-            this._receivers.set(id, resolve)
-            sender.send(message(id))
-        })
-    }
-
     call(remote: Endpoint, callable: UUID, parameters: any[]): Promise<any> {
         return new Promise<any>((resolve) => {
             let id = this._uuid()
@@ -81,36 +73,10 @@ export class Remote {
         return object
     }
 
-    toLocal_(sender: Endpoint, object: any): any {
-        if (object && object._solstice_id) return this.toLocalFunction_(sender, object)
-        if (Array.isArray(object)) return object.map(v => this.toLocal_(sender, v))
-        if (typeof object === 'object') {
-            let result: any = {}
-            for (let key of Object.keys(object))
-                result[key] = this.toLocal_(sender, object[key])
-            return result
-        }
-        return object
-    }
-
-    private toLocalFunction_(sender: Endpoint, callable: Callable) {
+    private toLocalFunction(sender: Endpoint, callable: Callable) {
         let call = this.call.bind(this)
         return function (): Promise<any> {
             return call(sender, callable._solstice_id, [...arguments])
-        }
-    }
-
-    private toLocalFunction(sender: Endpoint, callable: Callable) {
-        let call = this.send.bind(this)
-        let local = this._local
-        return function (): Promise<any> {
-            let parameters = local.toRemote([...arguments])
-            return call(sender, (id) => ({
-                id: id,
-                type: 'call',
-                callable: callable._solstice_id,
-                parameters: parameters
-            }))
         }
     }
 }

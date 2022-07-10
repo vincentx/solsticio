@@ -18,9 +18,9 @@ describe('Sandbox', () => {
         _errors = []
     })
 
-    describe('connect with remote host', () => {
+    describe('connect remote host', () => {
         beforeEach(() => {
-            _sandbox = sandbox({data: 'context'})
+            _sandbox = sandbox({context: 'sandbox'})
             _handler = _container.addEventListener.mock.lastCall[1]
         })
 
@@ -30,7 +30,7 @@ describe('Sandbox', () => {
             expect(_container.postMessage).toHaveBeenCalledWith({
                 id: 'connect-id',
                 type: 'response',
-                response: {data: 'context'}
+                response: {context: 'sandbox'}
             }, '*')
         })
 
@@ -64,7 +64,7 @@ describe('Sandbox', () => {
             // @ts-ignore
             vi.spyOn(Duplex, 'DuplexCallable').mockImplementation(() => _duplex)
 
-            _sandbox = sandbox({data: 'context'})
+            _sandbox = sandbox({context: 'sandbox'})
             _handler = _container.addEventListener.mock.lastCall[1]
         })
 
@@ -161,7 +161,7 @@ describe('Sandbox', () => {
         }
     })
 
-    function sandbox(context: any = {},) {
+    function sandbox(context: any = {}) {
         return new Sandbox({
             container: _container!,
             context: context,

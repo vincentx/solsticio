@@ -2,9 +2,7 @@ import {CallableRequest, CallableResponse, Context, DuplexCallable, Endpoint, Lo
 import {ErrorCollector} from '../core/error'
 
 type Error = { id: string, type: 'error', error: { message: string } }
-type SandboxRequest = SandboxConnectRequest | CallableRequest | CallableResponse | Error
-type SandboxConnectRequest = { id: string, type: 'context', context: Context }
-type HostRequest = CallableRequest | CallableResponse | Error
+type SolsticeRequest = CallableRequest | CallableResponse | Error
 
 export type Configuration = {
     container: Window
@@ -17,41 +15,31 @@ const Connect = '_solstice_connect_sandbox'
 
 export class Host {
     private readonly _sandboxes: Map<string, Context> = new Map()
-    private readonly _connected: Window[] = []
-    private readonly _connecting: Window[] = []
-    private readonly _host: Local
-    private readonly _hostContext: Context
+    private readonly _context: Context
     private readonly _sandbox: Remote
+
     private readonly _config: Configuration;
+    private readonly _connecting: Window[] = []
 
     constructor(config: Configuration) {
+        let host = new Local()
+        this._sandbox = new Remote(host)
+        this._context = host.toRemote(config.context)
         this._config = config
-        this._host = new Local()
-        this._sandbox = new Remote(this._host)
-        this._hostContext = this._host.toRemote(config.context)
+
+        let duplex = new DuplexCallable(host, this._sandbox)
 
         config.container.addEventListener('message', (e) => {
-            let request = e.data as HostRequest
+            if (!isSolsticeRequest(e.data)) return
+            let request = e.data as SolsticeRequest
             let target = config.source(e)
             let sender = toSender(target)
+
             try {
-                switch (request.type) {
-                    case 'call':
-                        this.checkConnectedWith(target)
-                        let result = this._host.toRemote(this._host.call(request.callable, ...request.parameters.map((p) => this._sandbox.toLocal(sender, p))))
-                        send({
-                            id: request.id,
-                            type: 'response',
-                            response: result
-                        }, target)
-                        break
-                    case 'response':
-                        this.checkConnectingWith(target)
-                        this._sandbox.receive(sender, request.id, request.response)
-                        break
-                    case 'error':
-                        config.errors.collect(request.error.message)
-                        break
+                if (isError(request)) config.errors.collect(request.error.message)
+                else {
+                    this.checkConnectingWith(target)
+                    duplex.handle(sender, request as CallableRequest)
                 }
             } catch (message) {
                 send(error(request, message), target)
@@ -62,26 +50,20 @@ export class Host {
     connect(id: string, sandbox: Window): Promise<Context> {
         let sender = toSender(sandbox)
         this._connecting.push(sandbox)
-        return this._sandbox.send(sender, (id) => ({id: id, type: 'context', context: this._hostContext}))
-            .then(context => {
+        return this._sandbox.call(sender, Connect, [this._context])
+            .then((context) => {
                 if (this._sandboxes.has(id)) {
-                    this._connecting.splice(this._connecting.indexOf(sandbox), 1)
                     this._config.errors.error(id, 'already registered')
                 } else {
-                    let remote = this._sandbox.toLocal(sender, context)
-                    this._sandboxes.set(id, remote)
-                    this._connected.push(sandbox)
-                    return remote
+                    let sandbox = this._sandbox.toLocal(sender, context)
+                    this._sandboxes.set(id, sandbox)
+                    return sandbox
                 }
             })
     }
 
     sandbox(id: string): any {
         return this._sandboxes.get(id)! || {}
-    }
-
-    private checkConnectedWith(target: Window) {
-        if (!this._connected.includes(target)) throw 'not allowed'
     }
 
     private checkConnectingWith(target: Window) {
@@ -108,14 +90,14 @@ export class Sandbox {
         let duplex = new DuplexCallable(sandbox, host)
 
         config.container.addEventListener('message', (e: MessageEvent) => {
-            if (!this.isSandboxRequest(e.data)) return
+            if (!isSolsticeRequest(e.data)) return
 
-            let request = e.data as SandboxRequest
+            let request = e.data as SolsticeRequest
             let target = config.source(e)
             let sender = toSender(target)
 
             try {
-                if (this.isError(request)) {
+                if (isError(request)) {
                     config.errors.collect(request.error.message)
                 } else if (this.isConnect(request)) {
                     this.checkNotConnected()
@@ -131,17 +113,7 @@ export class Sandbox {
         })
     }
 
-    private isSandboxRequest(request: any): request is SandboxRequest {
-        return request && request.id && ((request.type === 'call' && request.callable && request.parameters) ||
-            (request.type === 'response' && request.response) ||
-            (request.type === 'error' && request.error && request.error.message))
-    }
-
-    private isError(request: SandboxRequest): request is Error {
-        return request.type === 'error'
-    }
-
-    private isConnect(request: SandboxRequest): request is CallableRequest {
+    private isConnect(request: SolsticeRequest): request is CallableRequest {
         return request.type === 'call' && request.callable === Connect
     }
 
@@ -161,10 +133,6 @@ export class Sandbox {
 
 function toSender(window: Window): Endpoint {
     return {
-        send(message) {
-            window.postMessage(message, '*')
-        },
-
         call(id: string, callable: string, parameters: any[]) {
             window.postMessage({id: id, type: 'call', callable: callable, parameters: parameters}, '*')
         },
@@ -175,10 +143,20 @@ function toSender(window: Window): Endpoint {
     }
 }
 
+function isError(request: SolsticeRequest): request is Error {
+    return request.type === 'error'
+}
+
+function isSolsticeRequest(request: any): request is SolsticeRequest {
+    return request && request.id && ((request.type === 'call' && request.callable && request.parameters) ||
+        (request.type === 'response' && request.response) ||
+        (request.type === 'error' && request.error && request.error.message))
+}
+
 function send(message: any, target: Window) {
     target.postMessage(message, '*')
 }
 
-function error(request: SandboxRequest, message: any) {
+function error(request: SolsticeRequest, message: any) {
     return {id: request.id, type: 'error', error: {message: message}}
 }

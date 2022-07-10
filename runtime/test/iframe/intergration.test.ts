@@ -31,22 +31,17 @@ describe('Host-Sandbox integration', () => {
         })
 
         it('should call sandbox callback for connected sandbox', async () => {
-            let callback = vi.fn()
-            let handler = vi.fn()
             $sandbox({
-                callback: callback,
-                config: {handler: handler}
+                callback: (parameter) => parameter,
+                config: {handler: (parameter) => parameter}
             })
 
             let host = $host()
             await host.connect('@sandbox', _sandbox.contentWindow!)
             let sandbox = host.sandbox('@sandbox')
 
-            await sandbox.callback('parameter')
-            await sandbox.config.handler('parameter')
-
-            expect(callback).toHaveBeenCalledWith('parameter')
-            expect(handler).toHaveBeenCalledWith('parameter')
+            await expect(sandbox.callback('parameter')).resolves.toEqual('parameter')
+            await expect(sandbox.config.handler('parameter')).resolves.toEqual('parameter')
         })
 
         it('should pass function to connected sandbox', async () => {
