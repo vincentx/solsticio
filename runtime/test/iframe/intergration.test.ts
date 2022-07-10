@@ -25,7 +25,7 @@ describe('Host-Sandbox integration', () => {
             let host = $host()
             $sandbox({version: '1.0.0', config: {enable: true}})
 
-            await host.connect('@sandbox', _sandbox.contentWindow!)
+            await host.connect('@sandbox', _sandbox.contentWindow!, 'https://sandbox.com')
             let sandbox = host.sandbox('@sandbox')
 
             expect(sandbox.version).toEqual('1.0.0')
@@ -39,7 +39,7 @@ describe('Host-Sandbox integration', () => {
             })
 
             let host = $host()
-            await host.connect('@sandbox', _sandbox.contentWindow!)
+            await host.connect('@sandbox', _sandbox.contentWindow!, 'https://sandbox.com')
             let sandbox = host.sandbox('@sandbox')
 
             await expect(sandbox.callback('parameter')).resolves.toEqual('parameter')
@@ -57,7 +57,7 @@ describe('Host-Sandbox integration', () => {
             })
 
             let host = $host()
-            await host.connect('@sandbox', _sandbox.contentWindow!)
+            await host.connect('@sandbox', _sandbox.contentWindow!, 'https://sandbox.com')
             await host.sandbox('@sandbox').callback(() => 'api called')
 
             await expect(promise).resolves.toEqual('api called')
@@ -69,7 +69,7 @@ describe('Host-Sandbox integration', () => {
             let hostPromise = $sandbox({version: '1.0.0', config: {enable: true}}).host()
 
             let host = $host({version: '1.2.0', config: {enable: false}})
-            await host.connect('@sandbox', _sandbox.contentWindow!)
+            await host.connect('@sandbox', _sandbox.contentWindow!, 'https://sandbox.com')
 
             let hostContext = await hostPromise
 
@@ -81,7 +81,7 @@ describe('Host-Sandbox integration', () => {
             let hostPromise = $sandbox({version: '1.0.0', config: {enable: true}}).host()
 
             let host = $host({modal: {show: (parameter) => parameter}, info: (parameter) => [parameter]})
-            await host.connect('@sandbox', _sandbox.contentWindow!)
+            await host.connect('@sandbox', _sandbox.contentWindow!, 'https://sandbox.com')
 
             let hostContext = await hostPromise
 

@@ -20,7 +20,7 @@ export class Host {
     private readonly _sandbox: Remote
 
     private readonly _config: Configuration;
-    private readonly _connecting: Window[] = []
+    private readonly _origins: string[] = []
 
     constructor(config: Configuration) {
         let host = new Local()
@@ -30,27 +30,27 @@ export class Host {
 
         let duplex = new DuplexCallable(host, this._sandbox)
 
-        config.container.addEventListener('message', (e) => {
-            if (!isSolsticeRequest(e.data)) return
+        config.container.addEventListener('message', (event) => {
+            let e = config.event ? config.event(event) : event
+
+            if (!isSolsticeRequest(e.data) || !this._origins.includes(e.origin)) return
             let request = e.data as SolsticeRequest
             let target = config.source(e)
-            let sender = endpoint(target)
+            let sender = endpoint(target, e.origin)
 
             try {
                 if (isError(request)) config.errors.collect(request.error.message)
-                else {
-                    this.checkConnectingWith(target)
-                    duplex.handle(sender, request as CallableRequest | CallableResponse)
-                }
+                else duplex.handle(sender, request as CallableRequest | CallableResponse)
             } catch (message) {
                 sender.error(request, message)
             }
         })
     }
 
-    connect(id: string, sandbox: Window): Promise<Context> {
-        let sender = endpoint(sandbox)
-        this._connecting.push(sandbox)
+    // @ts-ignore
+    connect(id: string, sandbox: Window, origin?: string): Promise<Context> {
+        let sender = endpoint(sandbox, origin)
+        this._origins.push(origin!)
         return this._sandbox.call(sender, Connect, [this._context])
             .then((context) => {
                 if (this._sandboxes.has(id)) {
@@ -65,10 +65,6 @@ export class Host {
 
     sandbox(id: string): any {
         return this._sandboxes.get(id)! || {}
-    }
-
-    private checkConnectingWith(target: Window) {
-        if (!this._connecting.includes(target)) throw 'not allowed'
     }
 }
 

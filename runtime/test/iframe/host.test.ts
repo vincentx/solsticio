@@ -38,45 +38,48 @@ describe('Host', () => {
         })
 
         it('should call connect function on remote sandbox', () => {
-            _host.connect('@sandbox', _sandbox as Window)
+            _host.connect('@sandbox', _sandbox as Window, 'https://sandbox.com')
 
             expect(_sandbox.postMessage).toHaveBeenCalledWith({
                 id: 'message-id', type: 'call', callable: '_solstice_connect_sandbox', parameters: [{context: 'host'}]
-            }, '*')
+            }, 'https://sandbox.com')
         })
 
         it('should register remote sandbox to connected sandboxes', async () => {
-            let sandbox = _host.connect('@sandbox', _sandbox as Window)
+            let sandbox = _host.connect('@sandbox', _sandbox as Window, 'https://sandbox.com')
 
             _handler({
                 data: {id: 'message-id', type: 'response', response: {context: 'sandbox'}},
-                source: _sandbox
+                source: _sandbox,
+                origin: 'https://sandbox.com'
             })
 
             await expect(sandbox).resolves.toEqual({context: 'sandbox'})
         })
 
         it('should register remote sandbox as local version', async () => {
-            let sandbox = _host.connect('@sandbox', _sandbox as Window)
+            let sandbox = _host.connect('@sandbox', _sandbox as Window, 'https://sandbox.com')
 
             _handler({
                 data: {id: 'message-id', type: 'response', response: {func: {_solstice_id: 'function-id'}}},
-                source: _sandbox
+                source: _sandbox,
+                origin: 'https://sandbox.com'
             })
 
             let sandboxContext = (await sandbox)
             sandboxContext.func()
 
             expect(_sandbox.postMessage).toHaveBeenCalledWith(
-                {id: 'message-id', type: 'call', callable: 'function-id', parameters: []}, '*')
+                {id: 'message-id', type: 'call', callable: 'function-id', parameters: []}, 'https://sandbox.com')
         })
 
         it('should not register remote sandbox if id already registered', async () => {
-            let first = _host.connect('@sandbox', _sandbox as Window)
+            let first = _host.connect('@sandbox', _sandbox as Window, 'https://sandbox.com')
 
             _handler({
                 data: {id: 'message-id', type: 'response', response: {context: 'sandbox'}},
-                source: _sandbox
+                source: _sandbox,
+                origin: 'https://sandbox.com'
             })
 
             await first
@@ -85,10 +88,11 @@ describe('Host', () => {
                 postMessage: vi.fn()
             }
 
-            let second = _host.connect('@sandbox', other)
+            let second = _host.connect('@sandbox', other, 'https://sandbox.com')
             _handler({
                 data: {id: 'message-id', type: 'response', response: {context: 'sandbox'}},
-                source: other
+                source: other,
+                origin: 'https://sandbox.com'
             })
 
             await expect(second).rejects.toEqual('@sandbox already registered')
@@ -112,18 +116,19 @@ describe('Host', () => {
 
         describe('connected sandbox', () => {
             beforeEach(() => {
-                _host.connect('@sandbox', _sandbox as Window)
+                _host.connect('@sandbox', _sandbox as Window, 'https://sandbox.com')
                 _handler({
                     data: {id: 'message-id', type: 'response', response: {context: 'sandbox'}},
-                    source: _sandbox
+                    source: _sandbox,
+                    origin: 'https://sandbox.com'
                 })
             })
-
 
             it('should handle call request', () => {
                 _handler({
                     data: {id: 'request-id', type: 'call', callable: 'function-id', parameters: []},
-                    source: _sandbox
+                    source: _sandbox,
+                    origin: 'https://sandbox.com'
                 })
 
                 expect(_duplex.handle.mock.lastCall[1]).toEqual({
@@ -137,7 +142,8 @@ describe('Host', () => {
             it('should handle call response', () => {
                 _handler({
                     data: {id: 'request-id', type: 'response', response: 'response'},
-                    source: _sandbox
+                    source: _sandbox,
+                    origin: 'https://sandbox.com'
                 })
 
                 expect(_duplex.handle.mock.lastCall[1]).toEqual({
@@ -146,37 +152,53 @@ describe('Host', () => {
                     response: 'response'
                 })
             })
+
+            it('should collect error if error received', () => {
+                _handler({
+                    data: {id: 'error-id', type: 'error', error: {message: 'reason'}},
+                    source: _sandbox,
+                    origin: 'https://sandbox.com'
+                })
+
+                expect(_errors).toEqual(['reason'])
+            })
         })
 
-        describe('not connected sandbox', () => {
+        describe('unknown origin', () => {
             it('should not handle call request', () => {
                 _handler({
                     data: {id: 'request-id', type: 'call', callable: 'function-id', parameters: []},
-                    source: _sandbox
+                    source: _sandbox,
+                    origin: 'https://other.com'
                 })
 
                 expect(_duplex.handle).toHaveBeenCalledTimes(0)
-                expect(_sandbox.postMessage).toHaveBeenLastCalledWith(
-                    {id: 'request-id', type: 'error', error: {message: 'not allowed'}}, '*')
+                expect(_sandbox.postMessage).toHaveBeenCalledTimes(0)
             })
 
             it('should not handle call response', () => {
                 _handler({
                     data: {id: 'request-id', type: 'response', response: 'response'},
-                    source: _sandbox
+                    source: _sandbox,
+                    origin: 'https://other.com'
                 })
 
                 expect(_duplex.handle).toHaveBeenCalledTimes(0)
-                expect(_sandbox.postMessage).toHaveBeenLastCalledWith(
-                    {id: 'request-id', type: 'error', error: {message: 'not allowed'}}, '*')
+                expect(_sandbox.postMessage).toHaveBeenCalledTimes(0)
+            })
+
+            it('should collect error if error received', () => {
+                _handler({
+                    data: {id: 'error-id', type: 'error', error: {message: 'reason'}},
+                    source: _sandbox,
+                    origin: 'https://other.com'
+                })
+
+                expect(_duplex.handle).toHaveBeenCalledTimes(0)
+                expect(_sandbox.postMessage).toHaveBeenCalledTimes(0)
             })
         })
 
-        it('should collect error if error received', () => {
-            _handler({data: {id: 'error-id', type: 'error', error: {message: 'reason'}}})
-
-            expect(_errors).toEqual(['reason'])
-        })
 
         it('should not handle if not a solstice request', () => {
             let source = {
@@ -193,8 +215,13 @@ describe('Host', () => {
         return new Host({
             container: _container!,
             context: context,
+            errors: new ErrorCollector((e) => _errors.push(e)),
             source: (e) => e.source as Window,
-            errors: new ErrorCollector((e) => _errors.push(e))
+            event: (e) => ({
+                data: e.data,
+                source: _sandbox,
+                origin: 'https://sandbox.com'
+            } as MessageEvent)
         })
     }
 })
