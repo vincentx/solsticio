@@ -1,4 +1,4 @@
-import {CallableRequest, CallableResponse, Context, DuplexCallable, Endpoint, Local, Remote} from './duplex'
+import {CallableRequest, CallableResponse, Context, DuplexCallable, Local, Remote} from './duplex'
 import {ErrorCollector} from '../core/error'
 
 type Error = { id: string, type: 'error', error: { message: string } }
@@ -33,22 +33,22 @@ export class Host {
             if (!isSolsticeRequest(e.data)) return
             let request = e.data as SolsticeRequest
             let target = config.source(e)
-            let sender = toSender(target)
+            let sender = endpoint(target)
 
             try {
                 if (isError(request)) config.errors.collect(request.error.message)
                 else {
                     this.checkConnectingWith(target)
-                    duplex.handle(sender, request as CallableRequest)
+                    duplex.handle(sender, request as CallableRequest | CallableResponse)
                 }
             } catch (message) {
-                send(error(request, message), target)
+                sender.error(request, message)
             }
         })
     }
 
     connect(id: string, sandbox: Window): Promise<Context> {
-        let sender = toSender(sandbox)
+        let sender = endpoint(sandbox)
         this._connecting.push(sandbox)
         return this._sandbox.call(sender, Connect, [this._context])
             .then((context) => {
@@ -77,7 +77,7 @@ export class Sandbox {
 
     constructor(config: Configuration) {
         let sandbox = new Local()
-        let host = new Remote(sandbox)
+        let duplex = new DuplexCallable(sandbox, new Remote(sandbox))
 
         this._host = new Promise<Context>((resolve) => {
             let context = sandbox.toRemote(config.context)
@@ -87,52 +87,48 @@ export class Sandbox {
             }]]))
         })
 
-        let duplex = new DuplexCallable(sandbox, host)
-
         config.container.addEventListener('message', (e: MessageEvent) => {
             if (!isSolsticeRequest(e.data)) return
-
             let request = e.data as SolsticeRequest
             let target = config.source(e)
-            let sender = toSender(target)
+            let sender = endpoint(target)
 
             try {
-                if (isError(request)) {
-                    config.errors.collect(request.error.message)
-                } else if (this.isConnect(request)) {
-                    this.checkNotConnected()
-                    this._connected = target
-                    duplex.handle(sender, request as CallableRequest)
+                if (isError(request)) config.errors.collect(request.error.message)
+                else if (isConnect(request)) {
+                    this.connected(target)
+                    duplex.handle(sender, request as CallableRequest | CallableResponse)
                 } else {
                     this.checkConnected(target)
                     duplex.handle(sender, request as CallableRequest | CallableResponse)
                 }
             } catch (message) {
-                send(error(request, message), target)
+                sender.error(request, message)
             }
         })
     }
 
-    private isConnect(request: SolsticeRequest): request is CallableRequest {
-        return request.type === 'call' && request.callable === Connect
+    host(): Promise<Context> {
+        return this._host
     }
 
-    private checkNotConnected() {
+    private connected(target: Window) {
         if (this._connected != null) throw 'already connected'
+        this._connected = target
     }
 
     private checkConnected(target: Window) {
         if (this._connected == null) throw 'not connected'
         if (this._connected != target) throw 'not allowed'
     }
-
-    host(): Promise<Context> {
-        return this._host
-    }
 }
 
-function toSender(window: Window): Endpoint {
+function endpoint(window: Window) {
     return {
+        error(request: SolsticeRequest, message: any) {
+            window.postMessage({id: request.id, type: 'error', error: {message: message}}, '*')
+        },
+
         call(id: string, callable: string, parameters: any[]) {
             window.postMessage({id: id, type: 'call', callable: callable, parameters: parameters}, '*')
         },
@@ -153,10 +149,6 @@ function isSolsticeRequest(request: any): request is SolsticeRequest {
         (request.type === 'error' && request.error && request.error.message))
 }
 
-function send(message: any, target: Window) {
-    target.postMessage(message, '*')
-}
-
-function error(request: SolsticeRequest, message: any) {
-    return {id: request.id, type: 'error', error: {message: message}}
+function isConnect(request: SolsticeRequest): request is CallableRequest {
+    return request.type === 'call' && request.callable === Connect
 }

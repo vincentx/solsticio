@@ -6,22 +6,20 @@ export type CallableRequest = { id: string, type: 'call', callable: string, para
 export type CallableResponse = { id: string, type: 'response', response: any }
 
 export interface Endpoint {
-    send?: (message: Message) => void
-    call?: (id: UUID, callable: UUID, parameters: any[]) => void
-    returns?: (id: UUID, result: any) => void
+    call: (id: UUID, callable: UUID, parameters: any[]) => void
+    returns: (id: UUID, result: any) => void
 }
 
 type UUID = string
 type Receiver = (value: any) => void
-type Message = { id: string }
 
 export class DuplexCallable {
-    private readonly _local: Local;
-    private readonly _remote: Remote;
+    private readonly _local: Local
+    private readonly _remote: Remote
 
     constructor(local: Local, remote: Remote) {
-        this._local = local;
-        this._remote = remote;
+        this._local = local
+        this._remote = remote
     }
 
     handle(sender: Endpoint, request: CallableRequest | CallableResponse) {
