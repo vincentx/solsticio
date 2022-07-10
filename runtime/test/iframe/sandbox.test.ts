@@ -58,8 +58,6 @@ describe('Sandbox', () => {
         })
 
         it('should handle call request from host origin', () => {
-            _handler(connectSandbox())
-
             _handler({
                 data: {id: 'request-id', type: 'call', callable: 'function-id', parameters: []},
                 source: _container,
@@ -117,6 +115,21 @@ describe('Sandbox', () => {
             expect(_duplex.handle).toHaveBeenCalledTimes(0)
             expect(_container.postMessage).toHaveBeenCalledTimes(0)
             expect(source.postMessage).toHaveBeenCalledTimes(0)
+        })
+
+        it('should send error back if exception thrown from duplex', () => {
+            _duplex.handle.mockImplementation(() => {
+                throw 'error'
+            })
+
+            _handler({
+                data: {id: 'request-id', type: 'call', callable: 'function-id', parameters: []},
+                source: _container,
+                origin: _hostOrigin
+            })
+
+            expect(_container.postMessage).toHaveBeenLastCalledWith(
+                {id: 'request-id', type: 'error', error: {message: 'error'}}, _hostOrigin)
         })
     })
 

@@ -84,9 +84,13 @@ function handle(config: Configuration, duplex: DuplexCallable, origins: string[]
         let request = e.data as SolsticeRequest
         let remote = endpoint(e.source as Window, e.origin, config.log)
 
-        config.log!('Receive message ', request, ' from ', e.origin)
-        if (isError(request)) config.errors.collect(request.error.message)
-        else duplex.handle(remote, request as CallableRequest | CallableResponse)
+        try {
+            config.log!('Receive message ', request, ' from ', e.origin)
+            if (isError(request)) config.errors.collect(request.error.message)
+            else duplex.handle(remote, request as CallableRequest | CallableResponse)
+        } catch (message) {
+            remote.error(request, message)
+        }
     }
 }
 
@@ -97,6 +101,10 @@ function endpoint(window: Window, origin: string, log: (...message: any[]) => vo
     }
 
     return {
+        error(request: SolsticeRequest, message: any) {
+            send({id: request.id, type: 'error', error: {message: message}})
+        },
+
         call(id: string, callable: string, parameters: any[]) {
             send({id: id, type: 'call', callable: callable, parameters: parameters})
         },
