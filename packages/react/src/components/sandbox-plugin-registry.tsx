@@ -12,21 +12,22 @@ type RegistryProps = {
 }
 
 export default function SandboxPluginRegistry(props: RegistryProps) {
-    const elements = useRef<Map<string, HTMLIFrameElement>>(new Map())
-
     function renderSandbox(plugin: SandboxPlugin) {
-        function onLoad() {
-            props.runtime.sandbox(plugin.id, plugin.src, elements.current!.get(plugin.id)!.contentWindow!)
-        }
-
-        return <iframe width="0" height="0" className="solsticio-sandbox" style={{display: "none"}}
-                       key={plugin.id} data-plugin-id={plugin.id} src={plugin.src}
-                       ref={(ref) => elements.current.set(plugin.id, ref!)}
-                       onLoad={onLoad}></iframe>
+        return <IframeSandbox plugin={plugin} runtime={props.runtime}/>
     }
 
-    return (<>
-            {props.plugins.map(renderSandbox)}
-        </>
-    )
+    return (<>{props.plugins.map(renderSandbox)}</>)
+}
+
+function IframeSandbox(props: { plugin: SandboxPlugin, runtime: SandboxRuntime }) {
+    const element = useRef<HTMLIFrameElement | null>(null)
+
+    function onLoad() {
+        props.runtime.sandbox(props.plugin.id, props.plugin.src, element.current!.contentWindow!)
+    }
+
+    return <iframe width="0" height="0" className="solsticio-sandbox" style={{display: "none"}}
+                   key={props.plugin.id} data-plugin-id={props.plugin.id} src={props.plugin.src}
+                   ref={element}
+                   onLoad={onLoad}></iframe>
 }
