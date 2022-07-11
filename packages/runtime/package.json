@@ -4,7 +4,7 @@
   "description": "A plugin runtime for front end development",
   "scripts": {
     "dev": "vite",
-    "test": "vitest --coverage --reporter verbose",
+    "test": "vitest --coverage --reporter verbose --run",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
