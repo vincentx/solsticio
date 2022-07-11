@@ -6,8 +6,8 @@
   },
   "scripts": {
     "bootstrap" : "lerna bootstrap --no-ci",
-    "test" : "lerna run test",
-    "build": "lerna run build",
+    "test" : "lerna run test --no-ci",
+    "build": "lerna run build --no-ci",
     "version": "lerna version"
   },
   "workspaces": [
