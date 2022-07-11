@@ -5,9 +5,9 @@
     "nx": "^14.4.2"
   },
   "scripts": {
-    "bootstrap" : "lerna bootstrap --no-ci",
-    "test" : "lerna run test --no-ci",
-    "build": "lerna run build --no-ci",
+    "bootstrap" : "lerna bootstrap",
+    "test" : "lerna run test",
+    "build": "lerna run build",
     "version": "lerna version"
   },
   "workspaces": [
