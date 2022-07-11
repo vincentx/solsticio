@@ -1,6 +1,7 @@
 import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 import * as path from 'path'
+import typescript from '@rollup/plugin-typescript'
 
 export default defineConfig({
     plugins: [react()],
@@ -11,6 +12,7 @@ export default defineConfig({
             fileName: (format) => `main.${format}.js`
         },
         rollupOptions: {
+            plugins: [typescript()],
             external: ['react', 'react-dom', '@solsticio/runtime'],
             output: {
                 globals: {

@@ -5,8 +5,8 @@ export default function useExtensionPoint<E extends Extension>(runtime: Runtime,
     const [extensions, setExtensions] = useState(runtime.extensions(id))
 
     useEffect(() => {
-        runtime.watch('@core/buttons', setExtensions)
-        return () => runtime.unwatch('@core/buttons', setExtensions)
+        runtime.watch(id, setExtensions)
+        return () => runtime.unwatch(id, setExtensions)
     })
 
     return extensions as E[]

@@ -3,21 +3,16 @@
   "version": "0.8.4",
   "description": "React integration for Solsticio Runtime",
   "scripts": {
-    "dev": "vite",
     "build": "tsc && vite build",
     "test": "vitest --coverage --reporter verbose --run"
   },
   "dependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "@solsticio/runtime": "*"
-  },
-  "peerDependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "@solsticio/runtime": "*"
   },
   "devDependencies": {
+    "@rollup/plugin-typescript": "^8.3.3",
     "@testing-library/react": "^13.3.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",

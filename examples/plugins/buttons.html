@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <link rel="icon" type="image/svg+xml" href="/src/favicon.svg"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Buttons Sandbox Plugin</title>
+</head>
+<body>
+<article>
+    <p>This is a simple sandbox plugin to extend the extension point: @examples/buttons</p>
+    <pre>
+        import Solsticio from '@solsticio/runtime'
+
+        let host = Solsticio.plugin({
+            id: '@sandbox-buttons-extension',
+            extensions: [{
+                name: 'button',
+                extensionPoint: '@examples/buttons',
+                text: 'Button from Sandbox',
+                type: 'danger'
+            }]}, 'http://localhost:3000')
+    </pre>
+</article>
+
+<script type="module" src="/src/buttons.ts"></script>
+</body>
+</html>

@@ -1,16 +1,18 @@
 {
   "name": "solsticio",
+  "private": true,
   "devDependencies": {
     "lerna": "^5.1.8",
     "nx": "^14.4.2"
   },
   "scripts": {
-    "bootstrap" : "lerna bootstrap",
-    "test" : "lerna run test",
+    "bootstrap": "lerna bootstrap",
+    "test": "lerna run test",
     "build": "lerna run build",
     "version": "lerna version"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "examples/*"
   ]
 }
