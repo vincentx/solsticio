@@ -1,15 +1,15 @@
 {
   "name": "@solsticio/react",
-  "version": "0.8.4",
+  "version": "0.9.0",
   "description": "React integration for Solsticio Runtime",
   "scripts": {
     "build": "tsc && vite build",
     "test": "vitest --coverage --reporter verbose --run"
   },
   "dependencies": {
+    "@solsticio/runtime": "^0.9.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "@solsticio/runtime": "*"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^8.3.3",
