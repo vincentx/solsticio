@@ -1,6 +1,6 @@
 {
   "name": "@solsticio/runtime",
-  "version": "0.7.3",
+  "version": "0.8.4",
   "description": "A plugin runtime for front end development",
   "scripts": {
     "dev": "vite",
