@@ -25,12 +25,15 @@ export type Extensions = {
     extensions: Extension[]
 }
 
+export type ExtensionPointWatcher = (extensions: Extension[]) => any
+
 export default class Runtime {
     protected readonly _errors: Collector
 
     private readonly _plugins: Map<Identifier, Plugin> = new Map()
     private readonly _extensionPoints: Map<Identifier, ExtensionPoint<any>> = new Map()
     private readonly _extensions: Map<Identifier, Extension[]> = new Map()
+    private readonly _extensionPointWatchers: Map<Identifier, ExtensionPointWatcher[]> = new Map()
 
     constructor(errors: Collector) {
         this._errors = errors
@@ -45,6 +48,19 @@ export default class Runtime {
         return [...this._extensions.get(id)!.map(it => ({...it}))]
     }
 
+    watch(extensionPoint: Identifier, watcher: ExtensionPointWatcher) {
+        if (this._extensionPointWatchers.has(extensionPoint))
+            this._extensionPointWatchers.get(extensionPoint)!.push(watcher)
+    }
+
+    unwatch(extensionPoint: Identifier, watcher: ExtensionPointWatcher) {
+        if (this._extensionPointWatchers.has(extensionPoint)) {
+            let watchers = this._extensionPointWatchers.get(extensionPoint)!
+            let index = watchers.indexOf(watcher)
+            if (index != -1) watchers.splice(index, 1)
+        }
+    }
+
     define(...extensionPoints: ExtensionPoints[]) {
         for (let plugin of extensionPoints)
             if (!this._plugins.has(plugin.id)) {
@@ -55,12 +71,14 @@ export default class Runtime {
     }
 
     install(...extensions: Extensions[]) {
+        let updated = new Set<Identifier>()
         for (let plugin of extensions) {
             if (!this._plugins.has(plugin.id)) {
                 this._plugins.set(plugin.id, plugin)
-                plugin.extensions.forEach(extension => this.installExtension(plugin, extension))
+                plugin.extensions.forEach(extension => this.installExtension(plugin, extension, updated))
             } else this.error(plugin, plugin.id, 'already installed')
         }
+        this.notify(updated)
         return this
     }
 
@@ -71,11 +89,11 @@ export default class Runtime {
         else this.registerExtensionPoint(id, extensionPoint)
     }
 
-    private installExtension(plugin: Extensions, extension: Extension) {
+    private installExtension(plugin: Extensions, extension: Extension, updated: Set<Identifier>) {
         let id = identifier(plugin, extension)
         if (!this._extensions.has(extension.extensionPoint))
             this.error(plugin, 'extension point', extension.extensionPoint, 'not found for', id)
-        else this.registerExtension(id, extension, plugin)
+        else this.registerExtension(id, extension, plugin, updated)
     }
 
     private error(plugin: Plugin, ...message: any[]) {
@@ -85,17 +103,32 @@ export default class Runtime {
     private registerExtensionPoint(id: Identifier, extensionPoint: ExtensionPoint<Extension>) {
         this._extensionPoints.set(id, extensionPoint)
         this._extensions.set(id, [])
+        this._extensionPointWatchers.set(id, [])
     }
 
-    private registerExtension(id: Identifier, extension: Extension, plugin: Plugin) {
+    private registerExtension(id: Identifier, extension: Extension, plugin: Plugin, updated: Set<Identifier>) {
         let extensionPoint = this._extensionPoints.get(extension.extensionPoint)!;
         try {
             if (extensionPoint.validate && !extensionPoint.validate(extension)) this.error(plugin, id, 'not valid for', extension.extensionPoint)
-            else this._extensions.get(extension.extensionPoint)!.push({...{id: id}, ...extension})
+            else {
+                this._extensions.get(extension.extensionPoint)!.push({...{id: id}, ...extension})
+                updated.add(extension.extensionPoint)
+            }
         } catch (e) {
             this.error(plugin, id, 'not valid for', extension.extensionPoint, ':', e)
         }
     }
+
+    private notify(updated: Set<Identifier>) {
+        for (let extensionPoint of updated)
+            for (let watcher of this._extensionPointWatchers.get(extensionPoint)!)
+                try {
+                    watcher(this.extensions(extensionPoint))
+                } catch (error) {
+                    this._errors.collect(error as string)
+                }
+    }
+
 }
 
 function identifier(plugin: Plugin, component: ExtensionPoint<Extension> | Extension) {

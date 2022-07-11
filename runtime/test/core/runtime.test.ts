@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it} from 'vitest'
-import Runtime from '../../src/core/runtime'
+import Runtime, {Extension} from '../../src/core/runtime'
 import Collector from "../../src/error";
 
 describe('Solstice runtime', () => {
@@ -49,7 +49,6 @@ describe('Solstice runtime', () => {
             expect(_errors).toEqual(['plugin @core : @core already installed'])
         })
     })
-
 
     describe('Extension', () => {
         it('should return empty extensions for undefined extension points', () => {
@@ -138,6 +137,90 @@ describe('Solstice runtime', () => {
             _runtime.install({id: '@core', extensions: []}, {id: '@core', extensions: []})
 
             expect(_errors).toEqual(['plugin @core : @core already installed'])
+        })
+    })
+
+    describe('Extension Point watcher', () => {
+        it('should notify watcher when new extension installed', () => {
+            _runtime.define({
+                id: '@core',
+                extensionPoints: [{
+                    name: 'buttons',
+                    validate: (extension: {}) => extension != null
+                }]
+            })
+
+            let extensions = []
+            _runtime.watch('@core/buttons', (e: Extension[]) => extensions.push(...e))
+
+            _runtime.install({
+                id: '@buttons',
+                extensions: [{
+                    name: 'red-button',
+                    extensionPoint: '@core/buttons'
+                }]
+            })
+
+            expect(extensions).toEqual([{
+                id: "@buttons/red-button",
+                name: 'red-button',
+                extensionPoint: '@core/buttons'
+            }])
+        })
+
+        it('should record error occurred in watch method and not affect other watchers', () => {
+            _runtime.define({
+                id: '@core',
+                extensionPoints: [{
+                    name: 'buttons',
+                    validate: (extension: {}) => extension != null
+                }]
+            })
+
+            _runtime.watch('@core/buttons', (e: Extension[]) => {
+                throw 'error'
+            })
+            let extensions = []
+            _runtime.watch('@core/buttons', (e: Extension[]) => extensions.push(...e))
+
+
+            _runtime.install({
+                id: '@buttons',
+                extensions: [{
+                    name: 'red-button',
+                    extensionPoint: '@core/buttons'
+                }]
+            })
+            expect(_errors).toEqual(['error'])
+            expect(extensions).toEqual([{
+                id: "@buttons/red-button",
+                name: 'red-button',
+                extensionPoint: '@core/buttons'
+            }])
+        })
+
+        it('should not longer be notified after unwatch', () => {
+            _runtime.define({
+                id: '@core',
+                extensionPoints: [{
+                    name: 'buttons',
+                    validate: (extension: {}) => extension != null
+                }]
+            })
+
+            let extensions = []
+            let watcher = (e: Extension[]) => extensions.push(...e)
+            _runtime.watch('@core/buttons', watcher)
+            _runtime.unwatch('@core/buttons', watcher)
+
+            _runtime.install({
+                id: '@buttons',
+                extensions: [{
+                    name: 'red-button',
+                    extensionPoint: '@core/buttons'
+                }]
+            })
+            expect(extensions).toEqual([])
         })
     })
 })
