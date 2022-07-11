@@ -5,6 +5,7 @@
     "nx": "^14.4.2"
   },
   "scripts": {
+    "bootstrap" : "lerna bootstrap",
     "test" : "lerna run test",
     "build": "lerna run build",
     "version": "lerna version"
