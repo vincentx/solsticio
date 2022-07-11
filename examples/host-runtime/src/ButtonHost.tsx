@@ -1,6 +1,6 @@
 import Solsticio from '@solsticio/runtime'
 import ButtonsExtensionPoints, {ButtonsExtension} from "./ButtonsExtensionPoints";
-import SandboxRegistry from "./SandboxRegistry";
+import {SandboxPluginRegistry} from "@solsticio/react";
 
 const runtime = Solsticio.runtime({}, console.log)
 
@@ -50,7 +50,7 @@ export default function ButtonHost() {
                 </div>
             </div>
 
-            <SandboxRegistry runtime={runtime} plugins={sandboxPlugins}></SandboxRegistry>
+            <SandboxPluginRegistry runtime={runtime} plugins={sandboxPlugins}></SandboxPluginRegistry>
         </main>
     )
 }
