@@ -3,13 +3,9 @@ import Collector from '../error'
 type Name = string
 type Identifier = string
 
-function identifier(plugin: Plugin, component: ExtensionPoint<Extension> | Extension) {
-    return [plugin.id, component.name].join('/')
-}
-
 export type ExtensionPoint<E extends Extension> = {
     readonly name: Name
-    validate: (extension: E) => boolean
+    validate?: (extension: E) => boolean
 }
 
 export interface Extension {
@@ -17,45 +13,32 @@ export interface Extension {
     readonly extensionPoint: Identifier
 }
 
-export type Plugin = {
+export type Plugin = ExtensionPoints | Extensions
+
+export type ExtensionPoints = {
     readonly id: Identifier
-    extensionPoints?: ExtensionPoint<Extension>[]
-    extensions?: Extension[]
+    extensionPoints: ExtensionPoint<Extension>[]
 }
 
-export function isPlugin(context: any): context is Plugin {
-    return context.id
+export type Extensions = {
+    readonly id: Identifier
+    extensions: Extension[]
 }
 
-export class Runtime {
-    private readonly _errors: Collector
+export function isExtensions(context: any): context is Extensions {
+    return context && context.id && context.extensions && Array.isArray(context.extensions)
+        && context.extensions.every((e: any) => e.name && e.extensionPoint)
+}
+
+export default class Runtime {
+    protected readonly _errors: Collector
 
     private readonly _plugins: Map<Identifier, Plugin> = new Map()
     private readonly _extensionPoints: Map<Identifier, ExtensionPoint<any>> = new Map()
     private readonly _extensions: Map<Identifier, Extension[]> = new Map()
 
-    constructor(errors: Collector, ...plugins: Plugin[]) {
+    constructor(errors: Collector) {
         this._errors = errors
-        for (let plugin of plugins)
-            if (this._plugins.has(plugin.id)) this.error(plugin, plugin.id, 'already installed')
-            else this._plugins.set(plugin.id, plugin)
-
-        for (let plugin of this._plugins.values())
-            for (let extensionPoint of plugin.extensionPoints || []) {
-                let id = identifier(plugin, extensionPoint)
-                if (this._extensionPoints.has(id))
-                    this.error(plugin, 'extension point', id, 'already defined')
-                else this.registerExtensionPoint(id, extensionPoint)
-            }
-
-        for (let plugin of this._plugins.values()) {
-            for (let extension of plugin.extensions || []) {
-                let id = identifier(plugin, extension)
-                if (!this._extensions.has(extension.extensionPoint))
-                    this.error(plugin, 'extension point', extension.extensionPoint, 'not found for', id)
-                else this.registerExtension(id, extension, plugin)
-            }
-        }
     }
 
     extensionPoints(): Identifier[] {
@@ -65,6 +48,39 @@ export class Runtime {
     extensions(id: Identifier): Extension[] {
         if (!this._extensions.has(id)) return []
         return [...this._extensions.get(id)!.map(it => ({...it}))]
+    }
+
+    define(...extensionPoints: ExtensionPoints[]) {
+        for (let plugin of extensionPoints)
+            if (!this._plugins.has(plugin.id)) {
+                this._plugins.set(plugin.id, plugin)
+                plugin.extensionPoints.forEach(point => this.installExtensionPoint(plugin, point))
+            } else this.error(plugin, plugin.id, 'already installed')
+        return this
+    }
+
+    install(...extensions: Extensions[]) {
+        for (let plugin of extensions) {
+            if (!this._plugins.has(plugin.id)) {
+                this._plugins.set(plugin.id, plugin)
+                plugin.extensions.forEach(extension => this.installExtension(plugin, extension))
+            } else this.error(plugin, plugin.id, 'already installed')
+        }
+        return this
+    }
+
+    private installExtensionPoint(plugin: ExtensionPoints, extensionPoint: ExtensionPoint<Extension>) {
+        let id = identifier(plugin, extensionPoint)
+        if (this._extensionPoints.has(id))
+            this.error(plugin, 'extension point', id, 'already defined')
+        else this.registerExtensionPoint(id, extensionPoint)
+    }
+
+    private installExtension(plugin: Extensions, extension: Extension) {
+        let id = identifier(plugin, extension)
+        if (!this._extensions.has(extension.extensionPoint))
+            this.error(plugin, 'extension point', extension.extensionPoint, 'not found for', id)
+        else this.registerExtension(id, extension, plugin)
     }
 
     private error(plugin: Plugin, ...message: any[]) {
@@ -79,10 +95,15 @@ export class Runtime {
     private registerExtension(id: Identifier, extension: Extension, plugin: Plugin) {
         let extensionPoint = this._extensionPoints.get(extension.extensionPoint)!;
         try {
-            if (!extensionPoint.validate(extension)) this.error(plugin, id, 'not valid for', extension.extensionPoint)
+            if (extensionPoint.validate && !extensionPoint.validate(extension)) this.error(plugin, id, 'not valid for', extension.extensionPoint)
             else this._extensions.get(extension.extensionPoint)!.push({...{id: id}, ...extension})
         } catch (e) {
             this.error(plugin, id, 'not valid for', extension.extensionPoint, ':', e)
         }
     }
 }
+
+function identifier(plugin: Plugin, component: ExtensionPoint<Extension> | Extension) {
+    return [plugin.id, component.name].join('/')
+}
+
