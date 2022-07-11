@@ -25,11 +25,6 @@ export type Extensions = {
     extensions: Extension[]
 }
 
-export function isExtensions(context: any): context is Extensions {
-    return context && context.id && context.extensions && Array.isArray(context.extensions)
-        && context.extensions.every((e: any) => e.name && e.extensionPoint)
-}
-
 export default class Runtime {
     protected readonly _errors: Collector
 

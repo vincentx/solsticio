@@ -2,12 +2,12 @@ import {beforeEach, describe, expect, it} from 'vitest'
 import SandboxRuntime from '../../src/core/sandbox-runtime'
 import {Sandbox} from '../../src/iframe/sandbox'
 import {Context} from '../../src/iframe/duplex'
-import Collector from "../../src/error";
-import {ExtensionPoints} from "../../src/core/runtime";
+import Collector from '../../src/error'
+import {ExtensionPoints} from '../../src/core/runtime'
 
 //@vitest-environment jsdom
-describe('Runtime that supports Sandbox plugin', () => {
-    let _registry: SandboxRuntime
+describe('Runtime that supports Sandbox Plugin', () => {
+    let _runtime: SandboxRuntime
 
     let _sandbox: HTMLIFrameElement
     let _host: HTMLIFrameElement
@@ -27,27 +27,27 @@ describe('Runtime that supports Sandbox plugin', () => {
     })
 
     it('should register plugin extension points to runtime', () => {
-        _registry = registry({id: '@core', extensionPoints: [{name: 'buttons'}]})
-        expect(_registry.extensionPoints()).toEqual(['@core/buttons'])
+        _runtime = runtime({id: '@core', extensionPoints: [{name: 'buttons'}]})
+        expect(_runtime.extensionPoints()).toEqual(['@core/buttons'])
     })
 
     it('should not register plugin to runtime if already registered', () => {
-        _registry = registry(
+        _runtime = runtime(
             {id: '@core', extensionPoints: [{name: 'buttons'}]},
             {id: '@core', extensionPoints: [{name: 'buttons'}]})
 
-        expect(_registry.extensionPoints()).toEqual(['@core/buttons'])
+        expect(_runtime.extensionPoints()).toEqual(['@core/buttons'])
         expect(_errors).toEqual(['plugin @core : @core already installed'])
     })
 
     it('should register sandbox plugin to registry', async () => {
-        _registry = registry({id: '@core', extensionPoints: [{name: 'buttons'}]})
+        _runtime = runtime({id: '@core', extensionPoints: [{name: 'buttons'}]})
 
         sandbox({id: '@ui', extensions: [{name: 'extension', extensionPoint: '@core/buttons', action: () => 'click'}]})
 
-        await _registry.sandbox('@ui', 'https://sandbox.com', _sandbox.contentWindow!)
+        await _runtime.sandbox('@ui', 'https://sandbox.com', _sandbox.contentWindow!)
 
-        let extensions = _registry.extensions('@core/buttons')
+        let extensions = _runtime.extensions('@core/buttons')
 
         expect(extensions.length).toEqual(1)
         expect(extensions[0]['id']).toEqual('@ui/extension')
@@ -58,7 +58,7 @@ describe('Runtime that supports Sandbox plugin', () => {
 
 
     it('should not register sandbox plugin if already registered', async () => {
-        _registry = registry()
+        _runtime = runtime()
 
         let other = window.document.createElement('iframe')
         other.src = 'https://other.com'
@@ -67,42 +67,41 @@ describe('Runtime that supports Sandbox plugin', () => {
         sandbox({id: '@ui', extensions: []})
         sandbox({id: '@ui', extensions: []}, other.contentWindow!)
 
-        await _registry.sandbox('@ui', 'https://sandbox.com', _sandbox.contentWindow!)
-        await _registry.sandbox('@ui', 'https://other.com', other.contentWindow!)
+        await _runtime.sandbox('@ui', 'https://sandbox.com', _sandbox.contentWindow!)
+        await _runtime.sandbox('@ui', 'https://other.com', other.contentWindow!)
 
         expect(_errors).toEqual(['@ui already registered'])
     })
 
     it('should not register sandbox plugin if id not match', async () => {
-        _registry = registry()
+        _runtime = runtime()
 
         sandbox({id: '@ui-new', extensions: []})
 
-        await _registry.sandbox('@ui', 'https://sandbox.com', _sandbox.contentWindow!)
+        await _runtime.sandbox('@ui', 'https://sandbox.com', _sandbox.contentWindow!)
 
         expect(_errors).toEqual(['sandbox @ui-new can not be registered as @ui'])
     })
 
     it('should not register sandbox plugin if not valid plugin type', async () => {
-        _registry = registry()
+        _runtime = runtime()
 
         sandbox({})
 
-        await _registry.sandbox('@ui', 'https://sandbox.com', _sandbox.contentWindow!)
+        await _runtime.sandbox('@ui', 'https://sandbox.com', _sandbox.contentWindow!)
 
         expect(_errors).toEqual(['sandbox @ui is not an extensions plugin'])
     })
 
     it('should collect error if src is not valid url', () => {
-        _registry = registry()
+        _runtime = runtime()
 
-        _registry.sandbox('@ui', 'not a url', _sandbox.contentWindow!)
+        _runtime.sandbox('@ui', 'not a url', _sandbox.contentWindow!)
 
         expect(_errors).toEqual(['invalid src'])
     })
 
-    function registry(...extensionPoints: ExtensionPoints[]) {
-
+    function runtime(...extensionPoints: ExtensionPoints[]) {
         return new SandboxRuntime({
             container: _host.contentWindow!,
             context: {},

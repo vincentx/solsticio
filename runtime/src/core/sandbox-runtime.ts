@@ -1,4 +1,4 @@
-import Runtime, {Extensions, isExtensions} from './runtime'
+import Runtime, {Extensions} from './runtime'
 import {Configuration, Host} from '../iframe/sandbox'
 
 export default class SandboxRuntime extends Runtime {
@@ -8,7 +8,7 @@ export default class SandboxRuntime extends Runtime {
         super(config.errors)
         this._host = new Host(config)
     }
-    
+
     sandbox(id: string, src: string, window: Window) {
         try {
             return this._host.connect(id, window, new URL(src).origin).then(context => {
@@ -23,4 +23,9 @@ export default class SandboxRuntime extends Runtime {
             return new Promise(resolve => resolve({}))
         }
     }
+}
+
+function isExtensions(context: any): context is Extensions {
+    return context && context.id && context.extensions && Array.isArray(context.extensions)
+        && context.extensions.every((e: any) => e.name && e.extensionPoint)
 }
