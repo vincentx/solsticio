@@ -1,4 +1,4 @@
-import {ErrorCollector} from './error'
+import Collector from '../error'
 
 type Name = string
 type Identifier = string
@@ -28,14 +28,13 @@ export function isPlugin(context: any): context is Plugin {
 }
 
 export class Runtime {
-    private readonly _errors: ErrorCollector
+    private readonly _errors: Collector
 
     private readonly _plugins: Map<Identifier, Plugin> = new Map()
     private readonly _extensionPoints: Map<Identifier, ExtensionPoint<any>> = new Map()
     private readonly _extensions: Map<Identifier, Extension[]> = new Map()
 
-
-    constructor(errors: ErrorCollector, ...plugins: Plugin[]) {
+    constructor(errors: Collector, ...plugins: Plugin[]) {
         this._errors = errors
         for (let plugin of plugins)
             if (this._plugins.has(plugin.id)) this.error(plugin, plugin.id, 'already installed')
@@ -65,9 +64,7 @@ export class Runtime {
 
     extensions(id: Identifier): Extension[] {
         if (!this._extensions.has(id)) return []
-        return [...this._extensions.get(id)!.map(it => {
-            return {...it}
-        })]
+        return [...this._extensions.get(id)!.map(it => ({...it}))]
     }
 
     private error(plugin: Plugin, ...message: any[]) {

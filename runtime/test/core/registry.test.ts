@@ -2,7 +2,7 @@ import {beforeEach, describe, expect, it} from 'vitest'
 import {Registry} from '../../src/core/registry'
 import {Sandbox} from '../../src/iframe/sandbox'
 import {Context} from '../../src/iframe/duplex'
-import {ErrorCollector} from "../../src/core/error";
+import Collector from "../../src/error";
 
 //@vitest-environment jsdom
 describe('Plugin Registry', () => {
@@ -26,14 +26,14 @@ describe('Plugin Registry', () => {
         _registry = new Registry({
             container: _host.contentWindow!,
             context: {},
-            errors: new ErrorCollector(_ => _),
+            errors: new Collector(_ => _),
             log: silence,
             event: (e) => ({
                 data: e.data,
                 source: _sandbox.contentWindow!,
                 origin: 'https://sandbox.com'
             } as MessageEvent)
-        }, new ErrorCollector(e => _errors.push(e)))
+        }, new Collector(e => _errors.push(e)))
     })
 
     it('should register plugin to registry', () => {
@@ -126,7 +126,7 @@ describe('Plugin Registry', () => {
         new Sandbox({
             container: target,
             context: context,
-            errors: new ErrorCollector(_ => _),
+            errors: new Collector(_ => _),
             log: silence,
             event: (e) => ({
                 data: e.data,

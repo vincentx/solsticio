@@ -1,6 +1,6 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {Host} from '../../src/iframe/sandbox'
-import {ErrorCollector} from '../../src/core/error'
+import Collector from '../../src/error'
 import * as uuid from 'uuid'
 import * as Duplex from '../../src/iframe/duplex'
 
@@ -67,6 +67,7 @@ describe('Host', () => {
             })
 
             let sandboxContext = (await sandbox)
+
             sandboxContext.func()
 
             expect(_sandbox.postMessage).toHaveBeenCalledWith(
@@ -74,7 +75,25 @@ describe('Host', () => {
         })
 
         it('should not register remote sandbox if id already registered', async () => {
-            let first = _host.connect('@sandbox', _sandbox as Window, 'https://sandbox.com')
+            await connect('@sandbox')
+
+            let other = {
+                postMessage: vi.fn()
+            }
+
+            let second = _host.connect('@sandbox', other, 'https://other.com')
+            _handler({
+                data: {id: 'message-id', type: 'response', response: {context: 'sandbox'}},
+                source: other,
+                origin: 'https://other.com'
+            })
+
+            await expect(second).rejects.toEqual('@sandbox already registered')
+            expect(_host._origins.includes('https://other.com')).toBeFalsy()
+        })
+
+        async function connect(id: string) {
+            let connection = _host.connect('@sandbox', _sandbox as Window, 'https://sandbox.com')
 
             _handler({
                 data: {id: 'message-id', type: 'response', response: {context: 'sandbox'}},
@@ -82,21 +101,8 @@ describe('Host', () => {
                 origin: 'https://sandbox.com'
             })
 
-            await first
-
-            let other = {
-                postMessage: vi.fn()
-            }
-
-            let second = _host.connect('@sandbox', other, 'https://sandbox.com')
-            _handler({
-                data: {id: 'message-id', type: 'response', response: {context: 'sandbox'}},
-                source: other,
-                origin: 'https://sandbox.com'
-            })
-
-            await expect(second).rejects.toEqual('@sandbox already registered')
-        })
+            await connection
+        }
     })
 
     describe('handle host requests', () => {
@@ -215,7 +221,7 @@ describe('Host', () => {
         return new Host({
             container: _container!,
             context: context,
-            errors: new ErrorCollector((e) => _errors.push(e)),
+            errors: new Collector((e) => _errors.push(e)),
             log: silence,
             event: (e) => ({
                 data: e.data,

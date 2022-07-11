@@ -1,6 +1,6 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {Sandbox} from '../../src/iframe/sandbox'
-import {ErrorCollector} from '../../src/core/error'
+import Collector from '../../src/error'
 import * as Duplex from '../../src/iframe/duplex'
 
 describe('Sandbox', () => {
@@ -138,7 +138,7 @@ describe('Sandbox', () => {
             container: _container!,
             context: context,
             log: silence,
-            errors: new ErrorCollector((e) => _errors.push(e))
+            errors: new Collector((e) => _errors.push(e))
         }, _hostOrigin)
     }
 

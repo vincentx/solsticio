@@ -1,6 +1,6 @@
 import {isPlugin, Plugin} from './runtime'
 import {Configuration, Host} from '../iframe/sandbox'
-import {ErrorCollector} from "./error";
+import Collector from '../error'
 
 export type SandboxPlugin = {
     id: string
@@ -11,9 +11,9 @@ export type SandboxPlugin = {
 export class Registry {
     private readonly _plugins: Map<string, Plugin> = new Map()
     private readonly _host: Host
-    private readonly _errors: ErrorCollector
+    private readonly _errors: Collector
 
-    constructor(config: Configuration, error: ErrorCollector) {
+    constructor(config: Configuration, error: Collector) {
         this._host = new Host(config)
         this._errors = error
     }

@@ -1,4 +1,4 @@
-export class ErrorCollector {
+export default class Collector {
     private readonly _collector: (message: string) => void
 
     constructor(collector: (message: string) => void) {

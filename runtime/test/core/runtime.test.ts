@@ -1,6 +1,6 @@
 import {beforeEach, describe, expect, it} from 'vitest'
 import {Runtime, Plugin} from '../../src/core/runtime'
-import {ErrorCollector} from "../../src/core/error";
+import Collector from "../../src/error";
 
 describe('Solstice runtime', () => {
     let _errors: string[]
@@ -148,6 +148,6 @@ describe('Solstice runtime', () => {
     })
 
     function install(...plugins: Plugin[]) {
-        return new Runtime(new ErrorCollector(e => _errors.push(e)), ...plugins)
+        return new Runtime(new Collector(e => _errors.push(e)), ...plugins)
     }
 })

@@ -1,5 +1,5 @@
 import {CallableRequest, CallableResponse, Context, DuplexCallable, Local, Remote} from './duplex'
-import {ErrorCollector} from '../core/error'
+import Collector from '../error'
 
 type Error = { id: string, type: 'error', error: { message: string } }
 type SolsticeRequest = CallableRequest | CallableResponse | Error
@@ -7,7 +7,7 @@ type SolsticeRequest = CallableRequest | CallableResponse | Error
 export type Configuration = {
     container: Window
     context: Context
-    errors: ErrorCollector
+    errors: Collector
     log: (...message: any[]) => void
     event?: (e: MessageEvent) => MessageEvent
 }
@@ -37,6 +37,7 @@ export class Host {
         return this._sandbox.call(remote, Connect, [this._context])
             .then((context) => {
                 if (this._sandboxes.has(id)) {
+                    this._origins.splice(this._origins.indexOf(origin), 1)
                     this._config.errors.error(id, 'already registered')
                 } else {
                     let sandbox = this._sandbox.toLocal(remote, context)
