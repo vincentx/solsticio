@@ -19,13 +19,13 @@ describe('Sandbox', () => {
         _errors = []
     })
 
-    describe('connect remote host', () => {
+    describe('connect remote host-app', () => {
         beforeEach(() => {
             _sandbox = sandbox({context: 'sandbox'})
             _handler = _container.addEventListener.mock.lastCall[1]
         })
 
-        it('should expose local context to remote host', () => {
+        it('should expose local context to remote host-app', () => {
             _handler(connectSandbox())
 
             expect(_container.postMessage).toHaveBeenCalledWith({
@@ -35,10 +35,10 @@ describe('Sandbox', () => {
             }, _hostOrigin)
         })
 
-        it('should access host context after connection', async () => {
-            _handler(connectSandbox('connect-id', {data: 'from host'}))
+        it('should access host-app context after connection', async () => {
+            _handler(connectSandbox('connect-id', {data: 'from host-app'}))
 
-            await expect(_sandbox.host()).resolves.toEqual({data: 'from host'})
+            await expect(_sandbox.host()).resolves.toEqual({data: 'from host-app'})
         })
     })
 
@@ -57,7 +57,7 @@ describe('Sandbox', () => {
             _handler = _container.addEventListener.mock.lastCall[1]
         })
 
-        it('should handle call request from host origin', () => {
+        it('should handle call request from host-app origin', () => {
             _handler({
                 data: {id: 'request-id', type: 'call', callable: 'function-id', parameters: []},
                 source: _container,
@@ -72,7 +72,7 @@ describe('Sandbox', () => {
             })
         })
 
-        it('should handle call response from host origin', () => {
+        it('should handle call response from host-app origin', () => {
             _handler(connectSandbox())
 
             _handler({
@@ -84,7 +84,7 @@ describe('Sandbox', () => {
             expect(_duplex.handle.mock.lastCall[1]).toEqual({id: 'request-id', type: 'response', response: 'response'})
         })
 
-        it('should not handle any message not from host origin', () => {
+        it('should not handle any message not from host-app origin', () => {
             _handler({
                 data: {id: 'request-id', type: 'response', response: 'response'},
                 source: _container,

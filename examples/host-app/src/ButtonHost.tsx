@@ -1,6 +1,7 @@
 import Solsticio from '@solsticio/runtime'
 import ButtonsExtensionPoints, {ButtonsExtension} from "./ButtonsExtensionPoints";
-import {SandboxPluginRegistry} from "@solsticio/react";
+import {SandboxPluginRegistry, useExtensionPoint} from "@solsticio/react";
+
 
 const runtime = Solsticio.runtime({}, console.log)
 
@@ -38,19 +39,31 @@ export default function ButtonHost() {
 
             <div className="px-4 py-5 my-5 text-center">
                 <h1 className="display-5 fw-bold">Solsticio Example</h1>
-                <div className="col-lg-6 mx-auto">
+                <div className="col-lg-8 mx-auto">
                     <p className="lead mb-4">
-                        A simple example of Solsticio Runtime. The below area is an <b>extension point</b> named
+                        A simple example of Solsticio plugin framework. The below area is an <b>extension
+                        point</b> named
                         <b>@examples/buttons</b>. As the name suggests, it will render buttons based on different
                         extensions. The host will provide an api to show a modal window. Extensions can ask the host
                         to display a modal for them. For now, there are two plugins: a local one contributes the first
-                        two buttons, and a sandbox loaded from http://localhost:3001/buttons.html
+                        two buttons, and a sandbox loaded from http://localhost:3001/buttons.html. You can find its code
+                        below the extension points.
                     </p>
+
                     <div className="d-grid gap-2 d-sm-flex justify-content-sm-center">
                         <ButtonsExtensionPoints runtime={runtime}></ButtonsExtensionPoints>
                     </div>
                 </div>
             </div>
+            <div className="px-4 py-5 my-5 text-center">
+                <h5 className="display-10 fw-bold">The sandbox plugin load from http://localhost:3001/buttons.html</h5>
+                <div className="col-lg-8 mx-auto">
+                    <p className="lead mb-4">
+                        <iframe src="http://localhost:3001/buttons.html" height="350" className="col-lg-12 mx-auto"/>
+                    </p>
+                </div>
+            </div>
+
 
             <SandboxPluginRegistry runtime={runtime} plugins={sandboxPlugins}></SandboxPluginRegistry>
         </main>

@@ -12,7 +12,9 @@
   "scripts": {
     "bootstrap": "pnpm i",
     "test": "pnpm --filter react --filter runtime test",
-    "build": "pnpm --filter react --filter runtime build"
+    "build": "pnpm --filter react --filter runtime build",
+    "example-host": "pnpm --filter example-host-app dev",
+    "example-plugins": "pnpm --filter example-plugins dev"
   },
   "workspaces": [
     "packages/*",

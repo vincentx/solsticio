@@ -105,7 +105,7 @@ describe('Host', () => {
         }
     })
 
-    describe('handle host requests', () => {
+    describe('handle host-app requests', () => {
         let _duplex
 
         beforeEach(() => {

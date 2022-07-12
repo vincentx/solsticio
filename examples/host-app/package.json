@@ -1,5 +1,5 @@
 {
-  "name": "@solsticio/example-host-runtime",
+  "name": "@solsticio/example-host-app",
   "private": true,
   "version": "0.9.0",
   "scripts": {

@@ -65,7 +65,7 @@ describe('Host-Sandbox integration', () => {
     })
 
     describe('Call Host from Sandbox', () => {
-        it('should access host context from connected sandbox', async () => {
+        it('should access host-app context from connected sandbox', async () => {
             let hostPromise = $sandbox({version: '1.0.0', config: {enable: true}}).host()
 
             let host = $host({version: '1.2.0', config: {enable: false}})
@@ -77,7 +77,7 @@ describe('Host-Sandbox integration', () => {
             expect(hostContext.config.enable).toEqual(false)
         })
 
-        it('should call host function from connected sandbox', async () => {
+        it('should call host-app function from connected sandbox', async () => {
             let hostPromise = $sandbox({version: '1.0.0', config: {enable: true}}).host()
 
             let host = $host({modal: {show: (parameter) => parameter}, info: (parameter) => [parameter]})

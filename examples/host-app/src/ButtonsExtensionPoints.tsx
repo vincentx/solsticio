@@ -10,7 +10,7 @@ type Api = {
 export type ButtonsExtension = {
     id: string
     name: string
-    extensionPoint: string
+    extensionPoint: '@examples/buttons'
     text: string
     type: string
     action?: (api: Api) => void
