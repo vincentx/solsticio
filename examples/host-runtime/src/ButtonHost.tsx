@@ -42,7 +42,9 @@ export default function ButtonHost() {
                     <p className="lead mb-4">
                         A simple example of Solsticio Runtime. The below area is an <b>extension point</b> named
                         <b>@examples/buttons</b>. As the name suggests, it will render buttons based on different
-                        extensions.
+                        extensions. The host will provide an api to show a modal window. Extensions can ask the host
+                        to display a modal for them. For now, there are two plugins: a local one contributes the first
+                        two buttons, and a sandbox loaded from http://localhost:3001/buttons.html
                     </p>
                     <div className="d-grid gap-2 d-sm-flex justify-content-sm-center">
                         <ButtonsExtensionPoints runtime={runtime}></ButtonsExtensionPoints>

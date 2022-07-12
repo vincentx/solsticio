@@ -28,6 +28,5 @@ function IframeSandbox(props: { plugin: SandboxPlugin, runtime: SandboxRuntime }
 
     return <iframe width="0" height="0" className="solsticio-sandbox" style={{display: "none"}}
                    key={props.plugin.id} data-plugin-id={props.plugin.id} src={props.plugin.src}
-                   ref={element}
-                   onLoad={onLoad}></iframe>
+                   ref={element} onLoad={onLoad}></iframe>
 }
